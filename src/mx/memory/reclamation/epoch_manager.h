@@ -15,7 +15,6 @@
 #include <mx/util/core_set.h>
 #include <mx/util/maybe_atomic.h>
 #include <mx/util/mpsc_queue.h>
-#include <thread>
 
 namespace mx::memory::reclamation {
 class alignas(64) LocalEpoch

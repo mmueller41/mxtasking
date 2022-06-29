@@ -41,6 +41,7 @@ Scheduler::~Scheduler() noexcept
 void Scheduler::start_and_wait()
 {
     // Create threads for worker...
+    // TODO: Use Genode's thread interface instead of POSIX threads
     std::vector<std::thread> worker_threads(this->_core_set.size() +
                                             static_cast<std::uint16_t>(config::memory_reclamation() != config::None));
     for (auto channel_id = 0U; channel_id < this->_core_set.size(); ++channel_id)

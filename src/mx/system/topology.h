@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <cstdint>
 #include <numa.h>
-#include <sched.h>
-#include <thread>
 
 namespace mx::system {
 /**
@@ -17,7 +15,7 @@ public:
     /**
      * @return Core where the caller is running.
      */
-    static std::uint16_t core_id() { return std::uint16_t(sched_getcpu()); }
+    static std::uint16_t core_id() { return std::uint16_t(0); // no way of getting CPU id yet }
 
     /**
      * Reads the NUMA region identifier of the given core.
@@ -25,16 +23,19 @@ public:
      * @param core_id Id of the core.
      * @return Id of the NUMA region the core stays in.
      */
-    static std::uint8_t node_id(const std::uint16_t core_id) { return std::max(numa_node_of_cpu(core_id), 0); }
+    static std::uint8_t node_id(const std::uint16_t core_id) {
+        return 0; // no NUMA support yet
+    }
 
     /**
      * @return The greatest NUMA region identifier.
      */
-    static std::uint8_t max_node_id() { return std::uint8_t(numa_max_node()); }
+    static std::uint8_t max_node_id() { return std::uint8_t(1); }
 
     /**
      * @return Number of available cores.
      */
-    static std::uint16_t count_cores() { return std::uint16_t(std::thread::hardware_concurrency()); }
+    static std::uint16_t count_cores() { return std::uint16_t(Environment::env.cpu().affinity_space().total);
+     }
 };
 } // namespace mx::system

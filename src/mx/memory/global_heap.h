@@ -7,6 +7,7 @@
 namespace mx::memory {
 /**
  * The global heap represents the heap, provided by the OS.
+ * TODO: Use Genode's interface here.
  */
 class GlobalHeap
 {

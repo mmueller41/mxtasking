@@ -1,6 +1,7 @@
 #pragma once
 
 #include <fstream>
+#include <base/component.h>
 
 namespace mx::system {
 /**
@@ -9,18 +10,18 @@ namespace mx::system {
 class Environment
 {
 public:
+
+    /**
+     * @return Genode environment capability
+     * 
+     */
+    Genode::Env &env;
+
     /**
      * @return True, if NUMA balancing is enabled by the system.
      */
     static bool is_numa_balancing_enabled()
     {
-        std::ifstream numa_balancing_file("/proc/sys/kernel/numa_balancing");
-        auto is_enabled = std::int32_t{};
-        if (numa_balancing_file >> is_enabled)
-        {
-            return !(is_enabled == 0);
-        }
-
         return true;
     }
 

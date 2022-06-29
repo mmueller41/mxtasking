@@ -40,6 +40,7 @@ void EpochManager::enter_epoch_periodically()
         }
 
         // Wait some time until next epoch.
+        // TODO: Use native Genode method
         std::this_thread::sleep_for(config::epoch_interval()); // NOLINT: sleep_for seems to crash clang-tidy
     }
 }
