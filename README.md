@@ -3,6 +3,11 @@
 MxTasking is a task-based framework that assists the design of latch-free and parallel data structures. 
 MxTasking eases the information exchange between applications and the operating system, resulting in novel opportunities to manage resources in a truly hardware- and application-conscious way.
 
+## Genode port
+This branch contains changes to integral parts of MxTasking to make it runnable on the [Genode OS framework](https://genode.org).
+At the moment it is work-in-progress and is not readily usable. Checkout the `master` branch to get the upstream version.
+Changes in this branch will be merged into `master`, when the port is finished and working.
+
 ## Paper
 This is the code according to our paper **MxTasks: How to Make Efficient Synchronization and Prefetching Easy**.
 
