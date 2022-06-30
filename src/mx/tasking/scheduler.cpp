@@ -46,7 +46,7 @@ void Scheduler::start_and_wait()
                                             static_cast<std::uint16_t>(config::memory_reclamation() != config::None));
     for (auto channel_id = 0U; channel_id < this->_core_set.size(); ++channel_id)
     {
-        worker_threads[channel_id] = std::thread([this, channel_id] { this->_worker[channel_id]->execute(); });
+        this->_worker[channel_id]->start();
 
         system::thread::pin(worker_threads[channel_id], this->_worker[channel_id]->core_id());
     }
