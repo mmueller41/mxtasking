@@ -1,9 +1,9 @@
 #include "random.h"
-#include <chrono>
+//#include <chrono>
 
 using namespace mx::util;
 
-Random::Random() noexcept : Random(std::uint32_t(std::chrono::steady_clock::now().time_since_epoch().count()))
+Random::Random() noexcept : Random(4711);  /*TODO: Random: Use dynamic seed */// std::uint32_t(std::chrono::steady_clock::now().time_since_epoch().count()))
 {
 }
 

@@ -1,8 +1,8 @@
 #pragma once
 #include "scheduler.h"
 #include "task.h"
-#include <iostream>
-#include <memory>
+#include <iostream> /* TODO: Find Genode replacement, IO streams crash on Genode */
+#include <memory> /* TODO: Deos this work with Genode? */
 #include <mx/memory/dynamic_size_allocator.h>
 #include <mx/memory/fixed_size_allocator.h>
 #include <mx/memory/task_allocator_interface.h>

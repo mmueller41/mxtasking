@@ -9,6 +9,7 @@
 #include <vector>
 
 namespace mx::tasking::profiling {
+    /* TODO: Replace std::chrono with a Genode timer session */
 /**
  * Time range (from -- to) for idled time of a single channel.
  */

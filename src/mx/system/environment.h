@@ -1,6 +1,4 @@
 #pragma once
-
-#include <fstream>
 #include <base/component.h>
 
 namespace mx::system {
@@ -22,6 +20,7 @@ public:
      */
     static bool is_numa_balancing_enabled()
     {
+        /* TODO: Find out if this infe can be aquired at runtime for Genode, maybe from the config */
         return true;
     }
 
