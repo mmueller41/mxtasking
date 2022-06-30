@@ -12,12 +12,13 @@
 #include <mx/util/maybe_atomic.h>
 #include <variant>
 #include <vector>
+#include <base/component.h>
 
 namespace mx::tasking {
 /**
  * The worker executes tasks from his own channel, until the "running" flag is false.
  */
-class alignas(64) Worker
+class alignas(64) Worker : Genode::Thread
 {
 public:
     Worker(std::uint16_t id, std::uint16_t target_core_id, std::uint16_t target_numa_node_id,
@@ -26,6 +27,12 @@ public:
            profiling::Statistic &statistic) noexcept;
 
     ~Worker() noexcept = default;
+
+    /**
+     * @brief Entry point for Genode thread 
+     * 
+     */
+    void entry() override { this->execute(); }
 
     /**
      * Starts the worker (typically in its own thread).
@@ -41,6 +48,7 @@ public:
     [[nodiscard]] const Channel &channel() const noexcept { return _channel; }
 
 private:
+
     // Id of the logical core.
     const std::uint16_t _target_core_id;
 
