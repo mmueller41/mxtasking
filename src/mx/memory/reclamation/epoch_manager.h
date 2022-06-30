@@ -5,6 +5,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdint>
+#include <base/component.h>
 #include <mx/memory/config.h>
 #include <mx/memory/dynamic_size_allocator.h>
 #include <mx/resource/resource_interface.h>
@@ -54,7 +55,7 @@ private:
  * every local epoch is greater than the epoch
  * when the resource is deleted.
  */
-class EpochManager
+class EpochManager : Genode::Thread
 {
 public:
     EpochManager(const std::uint16_t count_channels, dynamic::Allocator &allocator,
@@ -108,6 +109,12 @@ public:
     }
 
     /**
+     * @brief Entrypoint for Genode::Thread
+     * 
+     */
+    void entry() { this->enter_epoch_periodically();  }
+
+    /**
      * Called periodically by a separate thread.
      */
     void enter_epoch_periodically();
@@ -147,6 +154,9 @@ private:
     // Global epoch, incremented periodically.
     std::atomic<epoch_t> _global_epoch{0U};
 
+    // Genode Timer object, needed for waking up periodically
+    Genode::Timer::Connection _timer { system::environment.env; }
+
     // Local epochs, one for every channel.
     alignas(64) std::array<LocalEpoch, tasking::config::max_cores()> _local_epochs;
 
@@ -162,6 +172,12 @@ private:
      * Reclaims resources with regard to the epoch.
      */
     void reclaim_epoch_garbage() noexcept;
+    
+    /**
+     * @brief Timeout handler for Genode
+     * 
+     */
+    void _handle_period();
 };
 
 class ReclaimEpochGarbageTask final : public tasking::TaskInterface

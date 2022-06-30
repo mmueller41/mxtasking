@@ -2,10 +2,10 @@
 #include <mx/system/topology.h>
 #include <mx/tasking/runtime.h>
 #include <mx/util/queue.h>
-#include <thread>
 
 using namespace mx::memory::reclamation;
 
+/* TODO: Find out wether timeouts can be delievered to single threads, or only globally per component */
 void EpochManager::enter_epoch_periodically()
 {
     // Wait until the scheduler starts the system.
@@ -16,7 +16,7 @@ void EpochManager::enter_epoch_periodically()
 
     // Enter new epochs and collect garbage periodically
     // while the system is running.
-    while (this->_is_running)
+    if (this->_is_running)
     {
         // Enter new epoch.
         this->_global_epoch.fetch_add(1U);
@@ -41,7 +41,8 @@ void EpochManager::enter_epoch_periodically()
 
         // Wait some time until next epoch.
         // TODO: Use native Genode method
-        std::this_thread::sleep_for(config::epoch_interval()); // NOLINT: sleep_for seems to crash clang-tidy
+        //std::this_thread::sleep_for(config::epoch_interval()); // NOLINT: sleep_for seems to crash clang-tidy
+        _timer.trigger_once(config::epoch_interval().count());
     }
 }
 
