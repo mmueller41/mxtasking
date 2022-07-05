@@ -13,7 +13,8 @@ Worker::Worker(const std::uint16_t id, const std::uint16_t target_core_id, const
                const util::maybe_atomic<bool> &is_running, const std::uint16_t prefetch_distance,
                memory::reclamation::LocalEpoch &local_epoch,
                const std::atomic<memory::reclamation::epoch_t> &global_epoch, profiling::Statistic &statistic) noexcept
-    : _target_core_id(target_core_id), _prefetch_distance(prefetch_distance),
+    : Thread(system::Environment::env, Name("Worker ", id), 4*4096, system::Environment::env.cpu().affinity_space().location_of_index(target_core_id), Weight(), system::Environment::env.cpu()),
+      _target_core_id(target_core_id), _prefetch_distance(prefetch_distance),
       _channel(id, target_numa_node_id, prefetch_distance), _local_epoch(local_epoch), _global_epoch(global_epoch),
       _statistic(statistic), _is_running(is_running)
 {
