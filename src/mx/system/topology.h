@@ -2,14 +2,14 @@
 
 #include <algorithm>
 #include <cstdint>
-#include <numa.h>
+
 
 namespace mx::system {
 /**
  * Encapsulates methods for retrieving information
- * about the hardware landscape.
- * TODO: Get topology information from Genode. This is a *huge* task because as of now Genode does not even know about NUMA. */
- */
+ * about the hardware landscape. */
+ /* TODO: Get topology information from Genode. This is a *huge* task because as of now Genode does not even know about NUMA. */
+ 
 class topology
 {
 public:
