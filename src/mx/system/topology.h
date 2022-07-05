@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <cstdint>
 
-
 namespace mx::system {
 /**
  * Encapsulates methods for retrieving information
