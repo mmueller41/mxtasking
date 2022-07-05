@@ -2,7 +2,6 @@
 #include "alignment_helper.h"
 #include <cstdint>
 #include <cstdlib>
-#include <numa.h>
 
 namespace mx::memory {
 /**
@@ -21,7 +20,7 @@ public:
      */
     static void *allocate(const std::uint8_t numa_node_id, const std::size_t size)
     {
-        return numa_alloc_onnode(size, numa_node_id);
+        /* TODO: Use component's heap */
     }
 
     /**
@@ -33,6 +32,7 @@ public:
      */
     static void *allocate_cache_line_aligned(const std::size_t size)
     {
+        /* TODO: Use component's heap, as std::aligned_alloc might not be thread-safe */
         return std::aligned_alloc(64U, alignment_helper::next_multiple(size, 64UL));
     }
 
@@ -42,6 +42,6 @@ public:
      * @param memory Pointer to memory.
      * @param size Size of the allocated object.
      */
-    static void free(void *memory, const std::size_t size) { numa_free(memory, size); }
+    static void free(void *memory, const std::size_t size) { /* TODO: Free via Genode component's heap */ }
 };
 } // namespace mx::memory
