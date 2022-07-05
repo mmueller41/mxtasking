@@ -2,7 +2,7 @@
 #include "scheduler.h"
 #include "task.h"
 #include <iostream> /* TODO: Find Genode replacement, IO streams crash on Genode */
-#include <memory> /* TODO: Deos this work with Genode? */
+#include <memory> /* DOne: Deos this work with Genode? */
 #include <mx/memory/dynamic_size_allocator.h>
 #include <mx/memory/fixed_size_allocator.h>
 #include <mx/memory/task_allocator_interface.h>
@@ -39,8 +39,8 @@ public:
         // Create a new resource allocator.
         if (_resource_allocator == nullptr)
         {
-            _resource_allocator.reset(new (memory::GlobalHeap::allocate_cache_line_aligned(
-                sizeof(memory::dynamic::Allocator))) memory::dynamic::Allocator());
+            _resource_allocator = new (memory::GlobalHeap::allocate_cache_line_aligned(
+                sizeof(memory::dynamic::Allocator))) memory::dynamic::Allocator();
         }
         else if (_resource_allocator->is_free())
         {
@@ -55,32 +55,32 @@ public:
         // Create a new task allocator.
         if (use_system_allocator)
         {
-            _task_allocator.reset(new (memory::GlobalHeap::allocate_cache_line_aligned(sizeof(
-                memory::SystemTaskAllocator<config::task_size()>))) memory::SystemTaskAllocator<config::task_size()>());
+            _task_allocator = new (memory::GlobalHeap::allocate_cache_line_aligned(sizeof(
+                memory::SystemTaskAllocator<config::task_size()>))) memory::SystemTaskAllocator<config::task_size()>();
         }
         else
         {
-            _task_allocator.reset(new (
+            _task_allocator = new (
                 memory::GlobalHeap::allocate_cache_line_aligned(sizeof(memory::fixed::Allocator<config::task_size()>)))
-                                      memory::fixed::Allocator<config::task_size()>(core_set));
+                                      memory::fixed::Allocator<config::task_size()>(core_set);
         }
 
         // Create a new scheduler.
         const auto need_new_scheduler = _scheduler == nullptr || *_scheduler != core_set;
         if (need_new_scheduler)
         {
-            _scheduler.reset(new (memory::GlobalHeap::allocate_cache_line_aligned(sizeof(Scheduler)))
-                                 Scheduler(core_set, prefetch_distance, *_resource_allocator));
+            _scheduler = new (memory::GlobalHeap::allocate_cache_line_aligned(sizeof(Scheduler)))
+                                 Scheduler(core_set, prefetch_distance, *_resource_allocator);
         }
         else
         {
-            _scheduler->reset();
+            _scheduler = nullptr;
         }
 
         // Create a new resource builder.
         if (_resource_builder == nullptr || need_new_scheduler)
         {
-            _resource_builder = std::make_unique<resource::Builder>(*_scheduler, *_resource_allocator);
+            _resource_builder = resource::Builder(*_scheduler, *_resource_allocator);
         }
 
         return true;
@@ -234,16 +234,16 @@ public:
 
 private:
     // Scheduler to spawn tasks.
-    inline static std::unique_ptr<Scheduler> _scheduler = {nullptr};
+    inline static Scheduler *_scheduler = nullptr;
 
     // Allocator to allocate tasks (could be systems malloc or our Multi-level allocator).
-    inline static std::unique_ptr<memory::TaskAllocatorInterface> _task_allocator = {nullptr};
+    inline static memory::TaskAllocatorInterface *_task_allocator = nullptr;
 
     // Allocator to allocate resources.
-    inline static std::unique_ptr<memory::dynamic::Allocator> _resource_allocator = {nullptr};
+    inline static memory::dynamic::Allocator *_resource_allocator = nullptr;
 
     // Allocator to allocate data objects.
-    inline static std::unique_ptr<resource::Builder> _resource_builder = {nullptr};
+    inline static resource::Builder *_resource_builder = nullptr;
 };
 
 /**
