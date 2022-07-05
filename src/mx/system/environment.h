@@ -7,13 +7,24 @@ namespace mx::system {
  */
 class Environment
 {
+private:
+    Genode::Env &_env;
+
 public:
+
+    Environment(Genode::Env &env) : _env(env) {}
 
     /**
      * @return Genode environment capability
      * 
      */
-    Genode::Env &env;
+    Genode::Env &env() { return _env; }
+
+    static Environment get_instance(Genode::Env &env) 
+    { 
+        static Environment e(env);
+        return e;
+    }
 
     /**
      * @return True, if NUMA balancing is enabled by the system.
