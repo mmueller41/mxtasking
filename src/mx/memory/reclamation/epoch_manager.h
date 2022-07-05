@@ -6,6 +6,7 @@
 #include <chrono>
 #include <cstdint>
 #include <base/component.h>
+#include <timer_session/connection.h>
 #include <mx/memory/config.h>
 #include <mx/memory/dynamic_size_allocator.h>
 #include <mx/resource/resource_interface.h>
@@ -155,7 +156,7 @@ private:
     std::atomic<epoch_t> _global_epoch{0U};
 
     // Genode Timer object, needed for waking up periodically
-    Genode::Timer::Connection _timer { system::environment.env; }
+    Timer::Connection _timer { /* TODO: Get environment for Genode */ };
 
     // Local epochs, one for every channel.
     alignas(64) std::array<LocalEpoch, tasking::config::max_cores()> _local_epochs;
@@ -173,11 +174,6 @@ private:
      */
     void reclaim_epoch_garbage() noexcept;
     
-    /**
-     * @brief Timeout handler for Genode
-     * 
-     */
-    void _handle_period();
 };
 
 class ReclaimEpochGarbageTask final : public tasking::TaskInterface

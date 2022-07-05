@@ -5,7 +5,6 @@
 
 using namespace mx::memory::reclamation;
 
-/* TODO: Find out wether timeouts can be delievered to single threads, or only globally per component */
 void EpochManager::enter_epoch_periodically()
 {
     // Wait until the scheduler starts the system.
@@ -40,9 +39,8 @@ void EpochManager::enter_epoch_periodically()
         }
 
         // Wait some time until next epoch.
-        // TODO: Use native Genode method
         //std::this_thread::sleep_for(config::epoch_interval()); // NOLINT: sleep_for seems to crash clang-tidy
-        _timer.trigger_once(config::epoch_interval().count());
+        _timer.u_sleep(config::epoch_interval().count());
     }
 }
 
