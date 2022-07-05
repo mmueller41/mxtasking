@@ -1,4 +1,4 @@
-#include <iostream>
+#include <base/component.h>
 #include <mx/tasking/runtime.h>
 
 class HelloWorldTask : public mx::tasking::TaskInterface
@@ -16,11 +16,12 @@ public:
     }
 };
 
-int main()
+void Component::construct(Genode::Env &env)
 {
     // Define which cores will be used (1 core here).
     const auto cores = mx::util::core_set::build(1);
 
+    mx::system::Environment::env = env;
     { // Scope for the MxTasking runtime.
 
         // Create a runtime for the given cores.
@@ -36,6 +37,4 @@ int main()
         // Schedule the task.
         mx::tasking::runtime::spawn(*hello_world_task);
     }
-
-    return 0;
 }
