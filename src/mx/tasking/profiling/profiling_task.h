@@ -1,6 +1,6 @@
 #pragma once
 
-#include <chrono>
+#include <timer_session/connection.h>
 #include <mx/tasking/channel.h>
 #include <mx/tasking/task.h>
 #include <mx/util/maybe_atomic.h>
@@ -9,21 +9,21 @@
 #include <vector>
 
 namespace mx::tasking::profiling {
-    /* TODO: Replace std::chrono with a Genode timer session */
+    /* DONE: Replace std::chrono with a Genode timer session */
 /**
  * Time range (from -- to) for idled time of a single channel.
  */
 class IdleRange
 {
 public:
-    IdleRange() : _start(std::chrono::steady_clock::now()) {}
+    IdleRange() : _timer(Timer::Connection(system::Environment::env)), _start(std::chrono::microseconds(_timer.elapsed_ms())) {}
     IdleRange(IdleRange &&) = default;
     ~IdleRange() = default;
 
     /**
      * Sets the end of the idle range to the current time.
      */
-    void stop() noexcept { _end = std::chrono::steady_clock::now(); }
+    void stop() noexcept { _end = std::chrono::time_point<std::chrono::steady_clock>(std::chrono::microseconds(_timer.elapsed_us())); }
 
     /**
      * @return Number of nanoseconds idled.
@@ -53,6 +53,9 @@ private:
 
     // End of idling.
     std::chrono::steady_clock::time_point _end;
+
+    // Timer session for Genode
+    Timer::Connection _timer;
 };
 
 /**
