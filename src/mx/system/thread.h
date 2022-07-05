@@ -9,7 +9,7 @@ namespace mx::system {
  * Encapsulates methods for thread access.
  */
 /* Deprecated for Genode */
-/* TODO: mx::system::thread : Replace POSIX-style thread pinning with Genode thread affinities */
+/* Done: mx::system::thread : Replace POSIX-style thread pinning with Genode thread affinities */
 
 class thread
 {
