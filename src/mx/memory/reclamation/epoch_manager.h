@@ -61,7 +61,9 @@ class EpochManager : Genode::Thread
 public:
     EpochManager(const std::uint16_t count_channels, dynamic::Allocator &allocator,
                  util::maybe_atomic<bool> &is_running) noexcept
-        : _count_channels(count_channels), _is_running(is_running), _allocator(allocator)
+        :
+        Thread(system::Environment::env, Name("EpochManager"), 8192),
+        _count_channels(count_channels), _is_running(is_running), _allocator(allocator)
     {
     }
 
