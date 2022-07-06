@@ -33,7 +33,7 @@ public:
     static void *allocate_cache_line_aligned(const std::size_t size)
     {
         /* TODO: Use component's heap, as std::aligned_alloc might not be thread-safe */
-        return std::aligned_alloc(64U, alignment_helper::next_multiple(size, 64UL));
+        return std::malloc(alignment_helper::next_multiple(size, 64UL));
     }
 
     /**
