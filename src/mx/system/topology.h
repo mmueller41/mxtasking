@@ -15,7 +15,7 @@ public:
     /**
      * @return Core where the caller is running.
      */
-    static std::uint16_t core_id() { return std::uint16_t(0); // no way of getting CPU id yet }
+    static std::uint16_t core_id() { return std::uint16_t(0); } // no way of getting CPU id yet }
 
     /**
      * Reads the NUMA region identifier of the given core.
