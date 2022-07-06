@@ -7,8 +7,8 @@ FindSSE()
 
 # Set compile flags
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_C_COMPILER clang)
-set(CMAKE_CXX_COMPILER clang++)
+set(CMAKE_C_COMPILER genode-x86-gcc)
+set(CMAKE_CXX_COMPILER genode-x86-g++)
 #set(CMAKE_CXX_CLANG_TIDY "clang-tidy;--extra-arg-before=-std=c++17 --system-headers=0")
 set(CMAKE_CXX_FLAGS "-pedantic -Wall -Wextra -Werror \
  -Wno-invalid-offsetof -Wcast-align -Wcast-qual -Wctor-dtor-privacy -Wdisabled-optimization \
