@@ -11,6 +11,7 @@
 #include <mx/memory/dynamic_size_allocator.h>
 #include <mx/resource/resource_interface.h>
 #include <mx/system/builtin.h>
+#include <mx/system/environment.h>
 #include <mx/tasking/config.h>
 #include <mx/tasking/task.h>
 #include <mx/util/aligned_t.h>
@@ -158,7 +159,7 @@ private:
     std::atomic<epoch_t> _global_epoch{0U};
 
     // Genode Timer object, needed for waking up periodically
-    Timer::Connection _timer { /* TODO: Get environment for Genode */ };
+    Timer::Connection _timer { system::Environment::env };
 
     // Local epochs, one for every channel.
     alignas(64) std::array<LocalEpoch, tasking::config::max_cores()> _local_epochs;
