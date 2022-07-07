@@ -6,8 +6,8 @@
 
 using namespace mx::tasking::profiling;
 
-ProfilingTask::ProfilingTask(mx::util::maybe_atomic<bool> &is_running, mx::tasking::Channel &channel)
-    : _is_running(is_running), _channel(channel), _timer (*new (memory::GlobalHeap::heap()) Timer::Connection(*system::Environment::env()))
+ProfilingTask::ProfilingTask(mx::util::maybe_atomic<bool> &is_running, mx::tasking::Channel &channel, Timer::Connection &timer)
+    : _is_running(is_running), _channel(channel), _timer (timer)
 {
     _idle_ranges.reserve(1 << 16);
 }
@@ -59,7 +59,7 @@ void Profiler::profile(const std::string &profiling_output_file)
 void Profiler::profile(util::maybe_atomic<bool> &is_running, Channel &channel)
 {
     auto *task =
-        new (memory::GlobalHeap::allocate_cache_line_aligned(sizeof(ProfilingTask))) ProfilingTask(is_running, channel);
+        new (memory::GlobalHeap::allocate_cache_line_aligned(sizeof(ProfilingTask))) ProfilingTask(is_running, channel, _timer);
     task->annotate(channel.id());
     task->annotate(mx::tasking::priority::low);
     this->_tasks.push_back(task);
@@ -68,7 +68,7 @@ void Profiler::profile(util::maybe_atomic<bool> &is_running, Channel &channel)
 
 void Profiler::stop()
 {
-    const auto end = std::chrono::steady_clock::now();
+    const auto end = std::chrono::time_point<std::chrono::steady_clock>(std::chrono::microseconds(_timer.elapsed_ms()));
     const auto end_relative_nanoseconds =
         std::chrono::duration_cast<std::chrono::nanoseconds>(end - this->_start).count();
     if (this->_profiling_output_file.has_value())
@@ -99,8 +99,8 @@ void Profiler::stop()
         end_output["end"] = end_relative_nanoseconds;
         output.push_back(std::move(end_output));
 
-        std::ofstream out_file{this->_profiling_output_file.value()};
-        out_file << output.dump() << std::endl;
+        //std::ofstream out_file{this->_profiling_output_file.value()};
+        Genode::log(output.dump()); // dump to serial console for the moment 
     }
 
     this->_profiling_output_file = std::nullopt;

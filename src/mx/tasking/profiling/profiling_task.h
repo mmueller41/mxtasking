@@ -67,7 +67,7 @@ private:
 class ProfilingTask final : public TaskInterface
 {
 public:
-    ProfilingTask(util::maybe_atomic<bool> &is_running, Channel &channel);
+    ProfilingTask(util::maybe_atomic<bool> &is_running, Channel &channel, Timer::Connection &timer);
     ~ProfilingTask() override = default;
 
     TaskResult execute(std::uint16_t core_id, std::uint16_t channel_id) override;
@@ -90,7 +90,7 @@ private:
 class Profiler
 {
 public:
-    Profiler() noexcept = default;
+    Profiler() : _timer(*new (memory::GlobalHeap::heap()) Timer::Connection(*system::Environment::env())) {}
     ~Profiler();
 
     /**
@@ -121,6 +121,8 @@ private:
 
     // List of all idle/profile tasks.
     std::vector<ProfilingTask *> _tasks;
+
+    Timer::Connection &_timer;
 };
 
 } // namespace mx::tasking::profiling
