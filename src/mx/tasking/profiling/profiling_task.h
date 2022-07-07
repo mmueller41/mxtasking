@@ -16,7 +16,7 @@ namespace mx::tasking::profiling {
 class IdleRange
 {
 public:
-    IdleRange() : _timer(Timer::Connection(system::Environment::env)), _start(std::chrono::microseconds(_timer.elapsed_ms())) {}
+    IdleRange(Timer::Connection &timer) : _timer(timer), _start(std::chrono::microseconds(_timer.elapsed_ms())) {}
     IdleRange(IdleRange &&) = default;
     ~IdleRange() = default;
 
@@ -55,7 +55,7 @@ private:
     std::chrono::steady_clock::time_point _end;
 
     // Timer session for Genode
-    Timer::Connection _timer;
+    Timer::Connection &_timer;
 };
 
 /**
@@ -78,6 +78,9 @@ private:
     util::maybe_atomic<bool> &_is_running;
     Channel &_channel;
     std::vector<IdleRange> _idle_ranges;
+
+    // Timer session for Genode
+    Timer::Connection &_timer;
 };
 
 /**
