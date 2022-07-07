@@ -7,14 +7,14 @@
 using namespace mx::tasking::profiling;
 
 ProfilingTask::ProfilingTask(mx::util::maybe_atomic<bool> &is_running, mx::tasking::Channel &channel)
-    : _is_running(is_running), _channel(channel)
+    : _is_running(is_running), _channel(channel), _timer(*new Timer::Connection(system::Environment::env))
 {
     _idle_ranges.reserve(1 << 16);
 }
 
 mx::tasking::TaskResult ProfilingTask::execute(const std::uint16_t /*core_id*/, const std::uint16_t /*channel_id*/)
 {
-    IdleRange range;
+    IdleRange range(_timer);
 
     while (this->_is_running && this->_channel.empty())
     {
