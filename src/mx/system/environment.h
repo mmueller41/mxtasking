@@ -13,7 +13,7 @@ public:
      * @return Genode environment capability
      * 
      */
-    static Genode::Env &env;
+    static Genode::Env *env;
 
     
 

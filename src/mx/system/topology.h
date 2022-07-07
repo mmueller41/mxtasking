@@ -36,7 +36,7 @@ public:
     /**
      * @return Number of available cores.
      */
-    static std::uint16_t count_cores() { return std::uint16_t(Environment::env.cpu().affinity_space().total());
+    static std::uint16_t count_cores() { return std::uint16_t(Environment::env->cpu().affinity_space().total());
      }
 };
 } // namespace mx::system
