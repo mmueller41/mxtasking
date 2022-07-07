@@ -18,7 +18,7 @@ namespace mx::tasking {
 /**
  * The worker executes tasks from his own channel, until the "running" flag is false.
  */
-class alignas(64) Worker : Genode::Thread
+class alignas(64) Worker : public Genode::Thread
 {
 public:
     Worker(std::uint16_t id, std::uint16_t target_core_id, std::uint16_t target_numa_node_id,

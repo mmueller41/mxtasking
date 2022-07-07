@@ -57,7 +57,7 @@ private:
  * every local epoch is greater than the epoch
  * when the resource is deleted.
  */
-class EpochManager : Genode::Thread
+class EpochManager : public Genode::Thread
 {
 public:
     EpochManager(const std::uint16_t count_channels, dynamic::Allocator &allocator,
