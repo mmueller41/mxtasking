@@ -2,7 +2,6 @@
 #include <cassert>
 #include <mx/memory/global_heap.h>
 #include <mx/synchronization/synchronization.h>
-#include <mx/system/thread.h>
 #include <mx/system/topology.h>
 #include <thread>
 #include <vector>
@@ -60,9 +59,9 @@ void Scheduler::start_and_wait()
     // Wait for the worker threads to end. This will only
     // reached when the _is_running flag is set to false
     // from somewhere in the application.
-    for (auto &worker : this->_worker)
+    for (auto *worker : this->_worker)
     {
-        worker.join();
+        worker->join();
     }
 
     if constexpr (config::memory_reclamation() != config::None)
