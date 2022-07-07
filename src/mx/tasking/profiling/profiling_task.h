@@ -4,6 +4,7 @@
 #include <mx/tasking/channel.h>
 #include <mx/tasking/task.h>
 #include <mx/util/maybe_atomic.h>
+#include <mx/memory/global_heap.h>
 #include <optional>
 #include <utility>
 #include <vector>
