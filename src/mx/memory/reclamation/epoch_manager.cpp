@@ -40,7 +40,7 @@ void EpochManager::enter_epoch_periodically()
 
         // Wait some time until next epoch.
         //std::this_thread::sleep_for(config::epoch_interval()); // NOLINT: sleep_for seems to crash clang-tidy
-        _timer.u_sleep(config::epoch_interval().count());
+        _timer.usleep(config::epoch_interval().count());
     }
 }
 
