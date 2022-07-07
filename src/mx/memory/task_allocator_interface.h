@@ -48,6 +48,6 @@ public:
      * Frees the given memory using systems free.
      * @param address Memory to free.
      */
-    void free(const std::uint16_t /*core_id*/, void *address) noexcept override { GlobalHeap::heap().free(address); }
+    void free(const std::uint16_t /*core_id*/, void *address) noexcept override { GlobalHeap::heap().free(address, S); }
 };
 } // namespace mx::memory
