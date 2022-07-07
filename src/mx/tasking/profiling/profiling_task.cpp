@@ -100,7 +100,7 @@ void Profiler::stop()
         output.push_back(std::move(end_output));
 
         //std::ofstream out_file{this->_profiling_output_file.value()};
-        Genode::log(output.dump()); // dump to serial console for the moment 
+        Genode::log(output.dump().c_str()); // dump to serial console for the moment 
     }
 
     this->_profiling_output_file = std::nullopt;
