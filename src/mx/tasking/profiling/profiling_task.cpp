@@ -7,7 +7,7 @@
 using namespace mx::tasking::profiling;
 
 ProfilingTask::ProfilingTask(mx::util::maybe_atomic<bool> &is_running, mx::tasking::Channel &channel)
-    : _is_running(is_running), _channel(channel), _timer (*new (memory::GlobalHeap::heap())Timer::Connection(*system::Environment::env))
+    : _is_running(is_running), _channel(channel), _timer (*new (memory::GlobalHeap::heap()) Timer::Connection(*system::Environment::env()))
 {
     _idle_ranges.reserve(1 << 16);
 }

@@ -13,10 +13,19 @@ namespace mx::memory {
 class GlobalHeap
 {
 private:
-    static Genode::Heap _heap;
+    Genode::Heap _heap;
 
 public:
-    static Genode::Heap &heap() { return _heap; }
+    GlobalHeap() : _heap(Genode::Heap(system::Environment::env()->ram(), system::Environment::env()->rm())) {}
+
+    Genode::Heap &get_heap() { return _heap; }
+
+    static GlobalHeap &get_instance() {
+        static GlobalHeap gheap;
+        return gheap;
+    }
+
+    static Genode::Heap &heap() { return GlobalHeap::get_instance().get_heap(); }
 
     /**
      * Allocates the given size on the given NUMA node.
@@ -28,7 +37,7 @@ public:
     static void *allocate(const std::uint8_t numa_node_id, const std::size_t size)
     {
         /* TODO: Use component's heap */
-        _heap.alloc(size);
+        return GlobalHeap::get_instance().heap().alloc(size);
     }
 
     /**
@@ -41,7 +50,7 @@ public:
     static void *allocate_cache_line_aligned(const std::size_t size)
     {
         /* TODO: Use component's heap, as std::aligned_alloc might not be thread-safe */
-        return _heap.alloc(alignment_helper::next_multiple(size, 64UL));
+        return GlobalHeap::get_instance().heap().alloc(alignment_helper::next_multiple(size, 64UL));
     }
 
     /**
@@ -51,7 +60,7 @@ public:
      * @param size Size of the allocated object.
      */
     static void free(void *memory, const std::size_t size) { /* TODO: Free via Genode component's heap */
-        _heap.free(memory, size);
+        GlobalHeap::heap().free(memory, size);
     }
 };
 } // namespace mx::memory
