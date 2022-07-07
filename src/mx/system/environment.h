@@ -20,7 +20,7 @@ public:
     Libc::Env *getenv() { return _env; }
     void setenv(Libc::Env *env) { _env = env; }
 
-    static void setenv(Libc::Env *env) { Environment::get_instance().setenv(env);  }
+    static void set_env(Libc::Env *env) { Environment::get_instance().setenv(env);  }
 
     static Environment& get_instance() { static Environment env;
         return env;
