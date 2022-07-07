@@ -63,7 +63,7 @@ public:
     EpochManager(const std::uint16_t count_channels, dynamic::Allocator &allocator,
                  util::maybe_atomic<bool> &is_running) noexcept
         :
-        Thread(*system::Environment::env, Name("EpochManager"), 8192),
+        Thread(*system::Environment::env(), Name("EpochManager"), 8192),
         _count_channels(count_channels), _is_running(is_running), _allocator(allocator)
     {
     }
@@ -159,7 +159,7 @@ private:
     std::atomic<epoch_t> _global_epoch{0U};
 
     // Genode Timer object, needed for waking up periodically
-    Timer::Connection _timer { *system::Environment::env };
+    Timer::Connection _timer { *system::Environment::env() };
 
     // Local epochs, one for every channel.
     alignas(64) std::array<LocalEpoch, tasking::config::max_cores()> _local_epochs;

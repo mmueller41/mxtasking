@@ -1,5 +1,5 @@
 #pragma once
-#include <base/component.h>
+#include <libc/component.h>
 
 namespace mx::system {
 /**
@@ -7,15 +7,24 @@ namespace mx::system {
  */
 class Environment
 {
-public:
-
+private:
     /**
      * @return Genode environment capability
      * 
      */
-    static Genode::Env *env;
+    Libc::Env *_env;
 
-    
+public:
+    Environment() = default;
+
+    Libc::Env *getenv() { return _env; }
+    void setenv(Libc::Env *env) { Environment::get_instance().setenv(env);  }
+
+    static Environment& get_instance() { static Environment env;
+        return env;
+    }
+
+    static Libc::Env *env() { return Environment::get_instance().getenv(); }
 
     /**
      * @return True, if NUMA balancing is enabled by the system.
