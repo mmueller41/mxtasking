@@ -80,7 +80,7 @@ public:
         // Create a new resource builder.
         if (_resource_builder == nullptr || need_new_scheduler)
         {
-            _resource_builder = new resource::Builder(*_scheduler, *_resource_allocator);
+            _resource_builder = new(memory::GlobalHeap::heap()) resource::Builder(*_scheduler, *_resource_allocator);
         }
 
         return true;
