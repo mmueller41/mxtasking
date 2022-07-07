@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <cstring>
+#include <cstdint>
 #include <mx/system/environment.h>
 #ifdef USE_SSE2
 #include <emmintrin.h>

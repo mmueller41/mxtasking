@@ -7,6 +7,7 @@
 #include "task_stack.h"
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 #include <memory>
 #include <mx/memory/reclamation/epoch_manager.h>
 #include <mx/util/maybe_atomic.h>
