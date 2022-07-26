@@ -1,5 +1,4 @@
 #include "profiling_task.h"
-#include <fstream>  /* TODO: Replace fstream with Genode FS session, fstream not supported yet by Genode */
 #include <json.hpp>
 #include <mx/memory/global_heap.h>
 #include <mx/tasking/runtime.h>
