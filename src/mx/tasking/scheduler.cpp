@@ -31,10 +31,10 @@ Scheduler::Scheduler(const mx::util::core_set &core_set, const std::uint16_t pre
 
 Scheduler::~Scheduler() noexcept
 {
-    for (auto *worker : this->_worker)
+    for (int channel; channel < this->_count_channels; channel++)
     {
-        worker->~Worker();
-        memory::GlobalHeap::free(worker, sizeof(Worker));
+        _worker[channel]->~Worker();
+        memory::GlobalHeap::free(_worker[channel], sizeof(Worker));
     }
 }
 
@@ -60,9 +60,9 @@ void Scheduler::start_and_wait()
     // Wait for the worker threads to end. This will only
     // reached when the _is_running flag is set to false
     // from somewhere in the application.
-    for (auto *worker : this->_worker)
+    for (int channel = 0; channel < this->_count_channels; channel++)
     {
-        worker->join();
+        _worker[channel]->join();
     }
 
     Genode::log("All workers finished.");
