@@ -3,12 +3,10 @@
 #include <cstdint>
 #include <cstdlib>
 #include <base/heap.h>
-#include <mx/system/environment.h>
 
 namespace mx::memory {
 /**
  * The global heap represents the heap, provided by the OS.
- * TODO: Use Genode's interface here.
  */
 class GlobalHeap
 {
@@ -36,8 +34,7 @@ public:
      */
     static void *allocate(const std::uint8_t numa_node_id, const std::size_t size)
     {
-        /* TODO: Use component's heap */
-        return GlobalHeap::get_instance().heap().alloc(size);
+        return std::malloc(size);
     }
 
     /**
@@ -49,8 +46,9 @@ public:
      */
     static void *allocate_cache_line_aligned(const std::size_t size)
     {
-        /* TODO: Use component's heap, as std::aligned_alloc might not be thread-safe */
-        return GlobalHeap::get_instance().heap().alloc(alignment_helper::next_multiple(size, 64UL));
+        void *mem_chunk;
+        posix_memalign(&mem_chunk, 64U, alignment_helper::next_multiple(size, 64UL));
+        return mem_chunk;
     }
 
     /**
@@ -59,8 +57,8 @@ public:
      * @param memory Pointer to memory.
      * @param size Size of the allocated object.
      */
-    static void free(void *memory, const std::size_t size) { /* TODO: Free via Genode component's heap */
-        GlobalHeap::heap().free(memory, size);
+    static void free(void *memory, const std::size_t size) {
+        std::free(memory);
     }
 };
 } // namespace mx::memory

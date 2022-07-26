@@ -1,8 +1,8 @@
 #pragma once
 #include "scheduler.h"
 #include "task.h"
-#include <iostream> /* TODO: Find Genode replacement, IO streams crash on Genode */
-#include <memory> /* TODO: Deos this work with Genode? */
+#include <iostream> 
+#include <memory> 
 #include <mx/memory/dynamic_size_allocator.h>
 #include <mx/memory/fixed_size_allocator.h>
 #include <mx/memory/task_allocator_interface.h>
@@ -80,7 +80,7 @@ public:
         // Create a new resource builder.
         if (_resource_builder == nullptr || need_new_scheduler)
         {
-            _resource_builder = std::make_unique<resource::Builder>(*_scheduler, *_resource_allocator);
+            _resource_builder = std::make_unique<resource::Builder> (new resource::Builder(*_scheduler, *_resource_allocator));
         }
 
         return true;

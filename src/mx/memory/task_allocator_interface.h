@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <cstdlib>
-#include "global_heap.h"
 
 namespace mx::memory {
 /**
@@ -42,12 +41,12 @@ public:
     /**
      * @return Allocated memory using systems malloc (but aligned).
      */
-    [[nodiscard]] void *allocate(const std::uint16_t /*core_id*/) override { return GlobalHeap::heap().alloc(S); }
+    [[nodiscard]] void *allocate(const std::uint16_t /*core_id*/) override { return std::malloc(S); }
 
     /**
      * Frees the given memory using systems free.
      * @param address Memory to free.
      */
-    void free(const std::uint16_t /*core_id*/, void *address) noexcept override { GlobalHeap::heap().free(address, S); }
+    void free(const std::uint16_t /*core_id*/, void *address) noexcept override { std::free(address); }
 };
 } // namespace mx::memory
