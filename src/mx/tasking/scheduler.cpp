@@ -5,6 +5,7 @@
 #include <mx/system/topology.h>
 #include <thread>
 #include <vector>
+#include <base/log.h>
 
 using namespace mx::tasking;
 
@@ -64,12 +65,15 @@ void Scheduler::start_and_wait()
         worker->join();
     }
 
+    Genode::log("All workers finished.");
+
     if constexpr (config::memory_reclamation() != config::None)
     {
         this->_epoch_manager.join();
         // At this point, no task will execute on any resource;
         // but the epoch manager has joined, too. Therefore,
         // we will reclaim all memory manually.
+        Genode::log("Epoch manager finished. Reclaiming all memory...");
         this->_epoch_manager.reclaim_all();
     }
 }
