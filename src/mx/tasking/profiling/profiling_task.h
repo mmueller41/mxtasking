@@ -7,6 +7,7 @@
 #include <optional>
 #include <utility>
 #include <vector>
+#include <base/log.h>
 
 namespace mx::tasking::profiling {
 /**
@@ -15,21 +16,22 @@ namespace mx::tasking::profiling {
 class IdleRange
 {
 public:
-    IdleRange() : _start(std::chrono::steady_clock::now()) {}
+    IdleRange() : _start(Genode::Trace::timestamp()) {}
     IdleRange(IdleRange &&) = default;
     ~IdleRange() = default;
 
     /**
      * Sets the end of the idle range to the current time.
      */
-    void stop() noexcept { _end = std::chrono::steady_clock::now(); }
+    void stop() noexcept { _end = Genode::Trace::timestamp(); }
 
     /**
      * @return Number of nanoseconds idled.
      */
     [[nodiscard]] std::uint64_t nanoseconds() const noexcept
     {
-        return std::chrono::duration_cast<std::chrono::nanoseconds>(_end - _start).count();
+        return (_end - _start) / 2000000UL;  // TODO: Get TSC frequency from Genode
+        // return std::chrono::duration_cast<std::chrono::nanoseconds>(_end - _start).count();
     }
 
     /**
@@ -38,20 +40,26 @@ public:
      * @return Pair of (start, stop) normalized to the given time point.
      */
     [[nodiscard]] std::pair<std::uint64_t, std::uint64_t> normalize(
-        const std::chrono::steady_clock::time_point global_start) const noexcept
+        const Genode::Trace::Timestamp global_start) const noexcept
     {
-        return {
+        /*return {
             std::chrono::duration_cast<std::chrono::nanoseconds>(_start - global_start).count(),
             std::chrono::duration_cast<std::chrono::nanoseconds>(_end - global_start).count(),
+        };*/
+        return {
+        (_start - global_start) / 2000000UL,
+        (_end - global_start) / 2000000UL,
         };
     }
 
 private:
     // Start of idling.
-    std::chrono::steady_clock::time_point _start;
+    //std::chrono::steady_clock::time_point _start;
+    Genode::Trace::Timestamp _start;
 
     // End of idling.
-    std::chrono::steady_clock::time_point _end;
+    //std::chrono::steady_clock::time_point _end;
+    Genode::Trace::Timestamp _end;
 };
 
 /**
@@ -110,7 +118,8 @@ private:
     std::optional<std::string> _profiling_output_file{std::nullopt};
 
     // Time point of the runtime start.
-    std::chrono::steady_clock::time_point _start;
+    //std::chrono::steady_clock::time_point _start;
+    Genode::Trace::Timestamp _start;
 
     // List of all idle/profile tasks.
     std::vector<ProfilingTask *> _tasks;

@@ -53,7 +53,8 @@ void Profiler::profile(const std::string &profiling_output_file)
     this->_tasks.clear();
 
     this->_profiling_output_file.emplace(profiling_output_file);
-    this->_start = std::chrono::steady_clock::now();
+    this->_start = Genode::Trace::timestamp();
+     //::chrono::steady_clock::now();
 }
 
 void Profiler::profile(util::maybe_atomic<bool> &is_running, Channel &channel)
@@ -68,9 +69,8 @@ void Profiler::profile(util::maybe_atomic<bool> &is_running, Channel &channel)
 
 void Profiler::stop()
 {
-    const auto end = std::chrono::steady_clock::now();
-    const auto end_relative_nanoseconds =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(end - this->_start).count();
+    const auto end = Genode::Trace::timestamp();  // std::chrono::steady_clock::now();
+    const auto end_relative_nanoseconds = (end - this->_start) / 2000000UL;  // std::chrono::duration_cast<std::chrono::nanoseconds>(end - this->_start).count();
     if (this->_profiling_output_file.has_value())
     {
         auto output = nlohmann::json{};
