@@ -5,6 +5,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <mx/system/cache.h>
+#include <base/log.h>
+#include <cassert>
 
 namespace mx::util {
 /**
@@ -20,6 +22,8 @@ public:
         : _head(reinterpret_cast<T *>(&_stub)), _tail(reinterpret_cast<T *>(&_stub)),
           _end(reinterpret_cast<T *>(&_stub))
     {
+        assert((reinterpret_cast<uint64_t>(&_head) % 64 == 0) && (reinterpret_cast<uint64_t>(&_tail) % 64 == 0) &&
+               "head or tail not cacheline-aligned");
         reinterpret_cast<T &>(_stub).next(nullptr);
     }
     ~MPSCQueue() noexcept = default;
