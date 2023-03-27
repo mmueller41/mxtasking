@@ -138,6 +138,8 @@ public:
         return _occupancy.has_excessive_usage_prediction();
     }
 
+    std::uint8_t numa_node_id() { return _numa_node_id; }
+
 private:
     // Backend queues for multiple produces in different NUMA regions and different priorities,
     alignas(64)
