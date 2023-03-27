@@ -35,7 +35,7 @@ AllocationBlock::~AllocationBlock()
 {
     if (this->_allocated_block != nullptr)
     {
-        GlobalHeap::free(this->_allocated_block, this->_size);
+        GlobalHeap::free(this->_allocated_block, this->_size, this->_numa_node_id);
     }
 }
 

@@ -16,6 +16,7 @@
 #include <mx/util/core_set.h>
 #include <unordered_map>
 #include <vector>
+#include <cassert>
 
 namespace mx::memory::fixed {
 /**
@@ -45,17 +46,18 @@ class Chunk
 {
 public:
     Chunk() noexcept = default;
-    explicit Chunk(void *memory) noexcept : _memory(memory) {}
+    explicit Chunk(void *memory, bool is_allocated) noexcept : _memory(memory), _is_allocated(is_allocated) {}
     ~Chunk() noexcept = default;
 
     static constexpr auto size() { return 4096 * 4096; /* 16mb */ }
 
     explicit operator void *() const noexcept { return _memory; }
     explicit operator std::uintptr_t() const noexcept { return reinterpret_cast<std::uintptr_t>(_memory); }
-    explicit operator bool() const noexcept { return _memory != nullptr; }
+    explicit operator bool() const noexcept { return _memory != nullptr && _is_allocated; }
 
 private:
     void *_memory{nullptr};
+    bool _is_allocated{true};
 };
 
 /**
@@ -77,16 +79,20 @@ public:
 
     ~ProcessorHeap() noexcept
     {
+        if (_numa_node_id > mx::system::topology::max_node_id())
+            return;
+
         for (const auto allocated_chunk : _allocated_chunks)
         {
-            GlobalHeap::free(static_cast<void *>(allocated_chunk), Chunk::size());
+            if (static_cast<bool>(allocated_chunk))
+                GlobalHeap::free(static_cast<void *>(allocated_chunk), Chunk::size(), _numa_node_id);
         }
 
         for (const auto free_chunk : _free_chunk_buffer)
         {
             if (static_cast<bool>(free_chunk))
             {
-                GlobalHeap::free(static_cast<void *>(free_chunk), Chunk::size());
+                GlobalHeap::free(static_cast<void *>(free_chunk), Chunk::size(), _numa_node_id);
             }
         }
     }
@@ -178,7 +184,7 @@ private:
         auto heap_memory_address = reinterpret_cast<std::uintptr_t>(heap_memory);
         for (auto i = 0U; i < _free_chunk_buffer.size(); ++i)
         {
-            _free_chunk_buffer[i] = Chunk(reinterpret_cast<void *>(heap_memory_address + (i * Chunk::size())));
+            _free_chunk_buffer[i] = Chunk(reinterpret_cast<void *>(heap_memory_address + (i * Chunk::size())), i==0);
         }
 
         _next_free_chunk.store(0U);
@@ -238,7 +244,9 @@ public:
     void fill_buffer()
     {
         auto chunk = _processor_heap->allocate();
+    
         const auto chunk_address = static_cast<std::uintptr_t>(chunk);
+        //assert((chunk_address != 0) && "Failed to allocate chunk from processor heap");
 
         constexpr auto object_size = S;
         constexpr auto count_objects = std::uint64_t{Chunk::size() / object_size};
@@ -279,7 +287,8 @@ template <std::size_t S> class Allocator final : public TaskAllocatorInterface
 public:
     explicit Allocator(const util::core_set &core_set)
     {
-        for (auto node_id = std::uint8_t(0U); node_id < config::max_numa_nodes(); ++node_id)
+        //assert((system::topology::max_node_id() <= config::max_numa_nodes()) && "More NUMA nodes detected than supported. Increase value for max_numa_nodes() in mx/memory/config.h.");
+        for (auto node_id = std::uint8_t(0U); node_id <= system::topology::max_node_id(); ++node_id)
         {
             if (core_set.has_core_of_numa_node(node_id))
             {

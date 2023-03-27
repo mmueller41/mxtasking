@@ -41,7 +41,7 @@ public:
     /**
      * @return Allocated memory using systems malloc (but aligned).
      */
-    [[nodiscard]] void *allocate(const std::uint16_t /*core_id*/) override { return std::aligned_alloc(64U, S); }
+    [[nodiscard]] void *allocate(const std::uint16_t /*core_id*/) override { return std::malloc(S); }
 
     /**
      * Frees the given memory using systems free.
