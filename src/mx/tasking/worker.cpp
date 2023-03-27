@@ -4,8 +4,14 @@
 #include "task.h"
 #include <cassert>
 #include <mx/system/builtin.h>
+#include <mx/system/environment.h>
 #include <mx/system/topology.h>
 #include <mx/util/random.h>
+#include <base/thread.h>
+#include <base/affinity.h>
+#include <chrono>
+#include <base/log.h>
+#include <trace/timestamp.h>
 
 using namespace mx::tasking;
 
@@ -21,6 +27,13 @@ Worker::Worker(const std::uint16_t id, const std::uint16_t target_core_id, const
 
 void Worker::execute()
 {
+    { 
+        Genode::Thread *self = Genode::Thread::myself();
+        Genode::Affinity::Location loc = system::Environment::location(_target_core_id);
+
+        self->pin(loc);
+    }
+
     while (this->_is_running == false)
     {
         system::builtin::pause();
@@ -30,6 +43,8 @@ void Worker::execute()
     const auto core_id = system::topology::core_id();
     assert(this->_target_core_id == core_id && "Worker not pinned to correct core.");
     const auto channel_id = this->_channel.id();
+
+
 
     while (this->_is_running)
     {
