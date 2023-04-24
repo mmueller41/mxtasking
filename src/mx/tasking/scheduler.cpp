@@ -7,6 +7,8 @@
 #include <vector>
 #include <base/log.h>
 
+#include "profiling/taskin_profiler.h"
+
 using namespace mx::tasking;
 
 Scheduler::Scheduler(const mx::util::core_set &core_set, const std::uint16_t prefetch_distance,
@@ -27,10 +29,16 @@ Scheduler::Scheduler(const mx::util::core_set &core_set, const std::uint16_t pre
                        prefetch_distance, this->_epoch_manager[worker_id], this->_epoch_manager.global_epoch(),
                        this->_statistic);
     }
+    if constexpr (config::use_tasking_profiler()){
+        TaskingProfiler::getInstance().init(core_set.max_core_id());
+    }
 }
 
 Scheduler::~Scheduler() noexcept
 {
+    if constexpr (config::use_tasking_profiler()){
+        TaskingProfiler::getInstance().saveProfile();
+    }
     for (auto *worker : this->_worker)
     {
         std::uint8_t node_id = worker->channel().numa_node_id();
@@ -94,6 +102,9 @@ void Scheduler::schedule(TaskInterface &task, const std::uint16_t current_channe
                                        resource_channel_id, current_channel_id))
         {
             this->_worker[current_channel_id]->channel().push_back_local(&task);
+            if constexpr (config::use_tasking_profiler()){
+                TaskingProfiler::getInstance().enqueue(current_channel_id);
+            }      
             if constexpr (config::task_statistics())
             {
                 this->_statistic.increment<profiling::Statistic::ScheduledOnChannel>(current_channel_id);
@@ -102,7 +113,10 @@ void Scheduler::schedule(TaskInterface &task, const std::uint16_t current_channe
         else
         {
             this->_worker[resource_channel_id]->channel().push_back_remote(&task,
-                                                                           this->numa_node_id(current_channel_id));
+                                                                            this->numa_node_id(current_channel_id));
+            if constexpr (config::use_tasking_profiler()){
+                TaskingProfiler::getInstance().enqueue(resource_channel_id);
+            }                                                                           
             if constexpr (config::task_statistics())
             {
                 this->_statistic.increment<profiling::Statistic::ScheduledOffChannel>(current_channel_id);
@@ -120,6 +134,9 @@ void Scheduler::schedule(TaskInterface &task, const std::uint16_t current_channe
         if (target_channel_id == current_channel_id)
         {
             this->_worker[current_channel_id]->channel().push_back_local(&task);
+            if constexpr (config::use_tasking_profiler()){
+                TaskingProfiler::getInstance().enqueue(current_channel_id);
+            }               
             if constexpr (config::task_statistics())
             {
                 this->_statistic.increment<profiling::Statistic::ScheduledOnChannel>(current_channel_id);
@@ -128,6 +145,9 @@ void Scheduler::schedule(TaskInterface &task, const std::uint16_t current_channe
         else
         {
             this->_worker[target_channel_id]->channel().push_back_remote(&task, this->numa_node_id(current_channel_id));
+            if constexpr (config::use_tasking_profiler()){
+                TaskingProfiler::getInstance().enqueue(target_channel_id); 
+            }             
             if constexpr (config::task_statistics())
             {
                 this->_statistic.increment<profiling::Statistic::ScheduledOffChannel>(current_channel_id);
@@ -146,6 +166,9 @@ void Scheduler::schedule(TaskInterface &task, const std::uint16_t current_channe
     else
     {
         this->_worker[current_channel_id]->channel().push_back_local(&task);
+        if constexpr (config::use_tasking_profiler()){
+            TaskingProfiler::getInstance().enqueue(current_channel_id);
+        }         
         if constexpr (config::task_statistics())
         {
             this->_statistic.increment<profiling::Statistic::ScheduledOnChannel>(current_channel_id);
@@ -164,6 +187,9 @@ void Scheduler::schedule(TaskInterface &task) noexcept
     {
         const auto &annotated_resource = task.annotated_resource();
         this->_worker[annotated_resource.channel_id()]->channel().push_back_remote(&task, 0U);
+        if constexpr (config::use_tasking_profiler()){
+            TaskingProfiler::getInstance().enqueue(annotated_resource.channel_id());
+        }           
         if constexpr (config::task_statistics())
         {
             this->_statistic.increment<profiling::Statistic::ScheduledOffChannel>(annotated_resource.channel_id());
@@ -172,6 +198,9 @@ void Scheduler::schedule(TaskInterface &task) noexcept
     else if (task.has_channel_annotated())
     {
         this->_worker[task.annotated_channel()]->channel().push_back_remote(&task, 0U);
+        if constexpr (config::use_tasking_profiler()){
+            TaskingProfiler::getInstance().enqueue(task.annotated_channel());    
+        }          
         if constexpr (config::task_statistics())
         {
             this->_statistic.increment<profiling::Statistic::ScheduledOffChannel>(task.annotated_channel());

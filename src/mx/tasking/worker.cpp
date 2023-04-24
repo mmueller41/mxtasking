@@ -13,6 +13,8 @@
 #include <base/log.h>
 #include <trace/timestamp.h>
 
+#include "profiling/tasking_profiler.h"
+
 using namespace mx::tasking;
 
 Worker::Worker(const std::uint16_t id, const std::uint16_t target_core_id, const std::uint16_t target_numa_node_id,
@@ -98,22 +100,48 @@ void Worker::execute()
             // Based on the annotated resource and its synchronization
             // primitive, we choose the fitting execution context.
             auto result = TaskResult{};
+            auto task_id_profiler = 0;
             switch (Worker::synchronization_primitive(task))
             {
             case synchronization::primitive::ScheduleWriter:
+                if constexpr (config::use_tasking_profiler()){
+                    task_id_profiler = TaskingProfiler::getInstance().startTask(core_id, 0, typeid(*task).name());
+                    result = this->execute_optimistic(core_id, channel_id, task);
+                    TaskingProfiler::getInstance().endTask(channel_id, task_id_profiler);
+                }                   
                 result = this->execute_optimistic(core_id, channel_id, task);
                 break;
             case synchronization::primitive::OLFIT:
+                if constexpr (config::use_tasking_profiler()){
+                    task_id_profiler = TaskingProfiler::getInstance().startTask(core_id, 0, typeid(*task).name());
+                    result = this->execute_olfit(core_id, channel_id, task);
+                    TaskingProfiler::getInstance().endTask(channel_id, task_id_profiler);
+                }            
                 result = this->execute_olfit(core_id, channel_id, task);
                 break;
             case synchronization::primitive::ScheduleAll:
             case synchronization::primitive::None:
+                if constexpr (config::use_tasking_profiler()){
+                    task_id_profiler = TaskingProfiler::getInstance().startTask(core_id, 0, typeid(*task).name());
+                    result = task->execute(core_id, channel_id);
+                    TaskingProfiler::getInstance().endTask(channel_id, task_id_profiler);
+                }            
                 result = task->execute(core_id, channel_id);
                 break;
             case synchronization::primitive::ReaderWriterLatch:
+                if constexpr (config::use_tasking_profiler()){
+                    task_id_profiler = TaskingProfiler::getInstance().startTask(core_id, 0, typeid(*task).name());
+                    result = Worker::execute_reader_writer_latched(core_id, channel_id, task);
+                    TaskingProfiler::getInstance().endTask(channel_id, task_id_profiler);
+                }              
                 result = Worker::execute_reader_writer_latched(core_id, channel_id, task);
                 break;
             case synchronization::primitive::ExclusiveLatch:
+                if constexpr (config::use_tasking_profiler()){
+                    task_id_profiler = TaskingProfiler::getInstance().startTask(core_id, 0, typeid(*task).name());
+                    result = Worker::execute_exclusive_latched(core_id, channel_id, task);
+                    TaskingProfiler::getInstance().endTask(channel_id, task_id_profiler);
+                }            
                 result = Worker::execute_exclusive_latched(core_id, channel_id, task);
                 break;
             }
