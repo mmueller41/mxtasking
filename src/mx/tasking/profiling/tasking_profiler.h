@@ -28,6 +28,9 @@ public:
         std::chrono::high_resolution_clock::time_point timestamp;
     };
 
+    //Destructor
+    ~TaskingProfiler();
+
 private:
     TaskingProfiler() {};
     std::chrono::time_point<std::chrono::high_resolution_clock> relTime;

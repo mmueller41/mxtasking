@@ -7,7 +7,8 @@
 #include <vector>
 #include <base/log.h>
 
-#include "profiling/taskin_profiler.h"
+#include "profiling/tasking_profiler.h"
+
 
 using namespace mx::tasking;
 
@@ -29,16 +30,10 @@ Scheduler::Scheduler(const mx::util::core_set &core_set, const std::uint16_t pre
                        prefetch_distance, this->_epoch_manager[worker_id], this->_epoch_manager.global_epoch(),
                        this->_statistic);
     }
-    if constexpr (config::use_tasking_profiler()){
-        TaskingProfiler::getInstance().init(core_set.max_core_id());
-    }
 }
 
 Scheduler::~Scheduler() noexcept
 {
-    if constexpr (config::use_tasking_profiler()){
-        TaskingProfiler::getInstance().saveProfile();
-    }
     for (auto *worker : this->_worker)
     {
         std::uint8_t node_id = worker->channel().numa_node_id();
@@ -55,7 +50,6 @@ void Scheduler::start_and_wait()
     for (auto channel_id = 0U; channel_id < this->_core_set.size(); ++channel_id)
     {
         worker_threads[channel_id] = std::thread([this, channel_id] { this->_worker[channel_id]->execute(); });
-
         //system::thread::pin(worker_threads[channel_id], this->_worker[channel_id]->core_id());
     }
 
@@ -77,6 +71,11 @@ void Scheduler::start_and_wait()
     {
         worker_thread.join();
     }
+
+    if constexpr (config::use_tasking_profiler()){
+        TaskingProfiler::getInstance().saveProfile();
+    }
+
 
     if constexpr (config::memory_reclamation() != config::None)
     {

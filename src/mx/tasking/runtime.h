@@ -10,6 +10,8 @@
 #include <mx/util/core_set.h>
 #include <utility>
 
+#include "profiling/tasking_profiler.h"
+
 namespace mx::tasking {
 /**
  * The runtime is the central access structure to MxTasking.
@@ -83,8 +85,11 @@ public:
             _resource_builder = std::make_unique<resource::Builder>(*_scheduler, *_resource_allocator);
         }
 
-        //TaskingProfiler::getInstance().init(core_set.max_core_id());
-        
+        // Create new tasking Profiler.
+        if constexpr (config::use_tasking_profiler()){
+            TaskingProfiler::getInstance().init(core_set.max_core_id());
+        }   
+
         return true;
     }
 
@@ -108,7 +113,8 @@ public:
      * Spawns the given task.
      * @param task Task to be scheduled.
      */
-    static void spawn(TaskInterface &task) noexcept { _scheduler->schedule(task); }
+    static void spawn(TaskInterface &task) noexcept { 
+        _scheduler->schedule(task); }
 
     /**
      * @return Number of available channels.
@@ -267,6 +273,11 @@ public:
     {
     }
 
-    ~runtime_guard() noexcept { runtime::start_and_wait(); }
+    ~runtime_guard() noexcept { runtime::start_and_wait(); 
+                                if constexpr (config::use_tasking_profiler())
+                                {  
+                                    TaskingProfiler::getInstance().~TaskingProfiler();
+                                }
+                                }
 };
 } // namespace mx::tasking
