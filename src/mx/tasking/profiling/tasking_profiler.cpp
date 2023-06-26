@@ -204,10 +204,8 @@ void TaskingProfiler::saveProfile()
     for(std::uint16_t cpu_id = 0; cpu_id < total_cores; cpu_id++)
     {
         //Metadata Events for each core (CPU instead of process as name,...)
-        Genode::log("{\"name\":\"process_name\",\"ph\":\"M\",\"pid\":", cpu_id, ",\"tid\":", cpu_id, ",\"args\":{\"name\":\"CPU\"}},");
+        Genode::log("{\"name\":\"process_name\",\"ph\":\"M\",\"pid\":", cpu_id, ",\"args\":{\"name\":\"CPU\"}},");
         Genode::log("{\"name\":\"process_sort_index\",\"ph\":\"M\",\"pid\":", cpu_id, ",\"tid\":", cpu_id, ",\"args\":{\"name\":", cpu_id, "}},");
-        
-
 
         if (mx::tasking::config::use_task_queue_length()){
             taskQueueLength = 0;
