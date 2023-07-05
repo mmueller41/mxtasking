@@ -276,7 +276,7 @@ public:
     ~runtime_guard() noexcept { runtime::start_and_wait(); 
                                 if constexpr (config::use_tasking_profiler())
                                 {  
-                                    TaskingProfiler::getInstance().~TaskingProfiler();
+                                    TaskingProfiler::getInstance().free();
                                 }
                                 }
 };

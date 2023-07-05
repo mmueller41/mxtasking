@@ -44,7 +44,6 @@ public:
 
 std::string printFloatUS(std::uint64_t ns)
 {
-    char* str = new char[100];
     std::uint64_t remainder = ns % 1000;
     std::uint64_t front = ns / 1000;
     char strRemainder[4];
@@ -56,9 +55,7 @@ std::string printFloatUS(std::uint64_t ns)
     }
     strRemainder[3] = '\0';
 
-    sprintf(str, "%lu.%s", front, strRemainder);
-
-     std::string message(str);
+    std::string message = std::to_string(front) + "." + strRemainder;
     return message;
 
 }
@@ -350,15 +347,16 @@ void TaskingProfiler::saveProfile()
 }
 
 //Destructor
-TaskingProfiler::~TaskingProfiler()
+void TaskingProfiler::free()
 {
+    std::uint16_t total_cores = TaskingProfiler::getInstance().getTotalCores();
     for(std::uint16_t cpu_id = 0; cpu_id < total_cores; cpu_id++)
     {
         delete[] task_data[cpu_id];
     }
     delete[] task_data;
-    delete[] task_id_counter;
-    delete[] queue_id_counter;
+    delete[] TaskingProfiler::getInstance().getTaskIdCounter();
+    delete[] TaskingProfiler::getInstance().getQueueIdCounter();
 }
 
 

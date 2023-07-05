@@ -28,9 +28,6 @@ public:
         std::chrono::high_resolution_clock::time_point timestamp;
     };
 
-    //Destructor
-    ~TaskingProfiler();
-
 private:
     TaskingProfiler() {};
     std::chrono::time_point<std::chrono::high_resolution_clock> relTime;
@@ -97,7 +94,13 @@ public:
      */
     void printTP(std::uint64_t start, std::uint64_t end);
 
+    void free();
+
     task_info** getTaskData() { return task_data; }
     queue_info** getQueueData() { return queue_data; }
+    std::uint64_t* getTaskIdCounter() { return task_id_counter; }
+    std::uint64_t* getQueueIdCounter() { return queue_id_counter; }
+    std::uint16_t getTotalCores() { return total_cores; }
+    
     std::chrono::time_point<std::chrono::high_resolution_clock> getTinit() { return tinit; }
 };
