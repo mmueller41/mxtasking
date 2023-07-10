@@ -17,6 +17,7 @@
 #include <mx/util/core_set.h>
 #include <mx/util/random.h>
 #include <string>
+#include <mutex>
 
 namespace mx::tasking {
 /**
@@ -171,6 +172,16 @@ public:
 
     bool operator!=(const util::core_set &cores) const noexcept { return _core_set != cores; }
 
+    /**
+     * @return allWorkers
+     */
+    std::vector<Worker *>& getAllWorkers() noexcept { return allWorkers; }
+
+    /**
+     * @return allWorkersMutex
+     */
+    std::mutex& getAllWorkersMutex() noexcept { return allWorkersMutex; }
+
 private:
     // Cores to run the worker threads on.
     const util::core_set _core_set;
@@ -196,6 +207,12 @@ private:
 
     // Profiler for idle times.
     profiling::Profiler _profiler{};
+
+    // All initialized workers.
+    std::vector<Worker *> allWorkers;
+
+    // Mutex for the worker vector.
+    std::mutex allWorkersMutex;
 
     /**
      * Make a decision whether a task should be scheduled to the local

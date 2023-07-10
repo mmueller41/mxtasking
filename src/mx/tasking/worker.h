@@ -14,6 +14,9 @@
 #include <vector>
 
 namespace mx::tasking {
+
+class Scheduler;
+
 /**
  * The worker executes tasks from his own channel, until the "running" flag is false.
  */
@@ -39,6 +42,8 @@ public:
 
     [[nodiscard]] Channel &channel() noexcept { return _channel; }
     [[nodiscard]] const Channel &channel() const noexcept { return _channel; }
+
+    void setScheduler(Scheduler* scheduler) { _scheduler = scheduler; }
 
 private:
     // Id of the logical core.
@@ -67,6 +72,9 @@ private:
 
     // Flag for "running" state of MxTasking.
     const util::maybe_atomic<bool> &_is_running;
+
+    // Scheduler
+    Scheduler* _scheduler;
 
     /**
      * Analyzes the given task and chooses the execution method regarding synchronization.
@@ -126,5 +134,8 @@ private:
      */
     TaskResult execute_optimistic_read(std::uint16_t core_id, std::uint16_t channel_id,
                                        resource::ResourceInterface *resource, TaskInterface *task);
+
+    void stealTasks();
+
 };
 } // namespace mx::tasking

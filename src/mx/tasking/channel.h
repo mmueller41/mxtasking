@@ -140,6 +140,16 @@ public:
 
     std::uint8_t numa_node_id() { return _numa_node_id; }
 
+    TaskInterface* steal_task() noexcept {
+        if (!_local_queues[mx::tasking::priority::normal].empty()) {
+            return _local_queues[mx::tasking::priority::normal].pop_front();
+        } 
+        else if (!_local_queues[mx::tasking::priority::low].empty()) {
+            return _local_queues[mx::tasking::priority::low].pop_front();
+        }
+        return nullptr;
+    }
+
 private:
     // Backend queues for multiple produces in different NUMA regions and different priorities,
     alignas(64)

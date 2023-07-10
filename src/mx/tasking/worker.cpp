@@ -131,6 +131,30 @@ void Worker::execute()
                 runtime::delete_task(core_id, task);
             }
         }
+        stealTasks();
+    }
+}
+
+void Worker::stealTasks(){
+    std::cout << "stealTasks" << std::endl;
+    // This assumes that the worker has access to the other workers through
+    // a data structure named "allWorkers". You will need to adjust this 
+    // based on your program's structure.
+    std::lock_guard<std::mutex> lock(_scheduler->getAllWorkersMutex());
+    for (auto& worker : _scheduler->getAllWorkers())
+    {
+        if (worker == this)
+        {
+            continue;  // Skip the current worker.
+        }
+
+        TaskInterface* stolenTask = worker->_channel.steal_task();
+        if (stolenTask != nullptr)
+        {
+            // If the stolen task is not null, push it to the current worker's channel
+            this->_channel.push_back_local(stolenTask);
+            break;
+        }
     }
 }
 

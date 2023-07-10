@@ -26,6 +26,8 @@ Scheduler::Scheduler(const mx::util::core_set &core_set, const std::uint16_t pre
                 Worker(worker_id, core_id, this->_channel_numa_node_map[worker_id], this->_is_running,
                        prefetch_distance, this->_epoch_manager[worker_id], this->_epoch_manager.global_epoch(),
                        this->_statistic);
+        this->_worker[worker_id]->setScheduler(this);
+        allWorkers.push_back(this->_worker[worker_id]);
     }
 }
 
