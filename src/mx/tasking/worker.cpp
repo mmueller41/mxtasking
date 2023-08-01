@@ -105,7 +105,7 @@ void Worker::execute()
             {
             case synchronization::primitive::ScheduleWriter:
                 if constexpr (config::use_tasking_profiler()){
-                    task_id_profiler = TaskingProfiler::getInstance().startTask(core_id, 0, typeid(*task).name());
+                    task_id_profiler = TaskingProfiler::getInstance().startTask(channel_id, 0, typeid(*task).name());
                     result = this->execute_optimistic(core_id, channel_id, task);
                     TaskingProfiler::getInstance().endTask(channel_id, task_id_profiler);
                 }                   
@@ -115,7 +115,7 @@ void Worker::execute()
                 break;
             case synchronization::primitive::OLFIT:
                 if constexpr (config::use_tasking_profiler()){
-                    task_id_profiler = TaskingProfiler::getInstance().startTask(core_id, 0, typeid(*task).name());
+                    task_id_profiler = TaskingProfiler::getInstance().startTask(channel_id, 0, typeid(*task).name());
                     result = this->execute_olfit(core_id, channel_id, task);
                     TaskingProfiler::getInstance().endTask(channel_id, task_id_profiler);
                 }
@@ -126,7 +126,7 @@ void Worker::execute()
             case synchronization::primitive::ScheduleAll:
             case synchronization::primitive::None:
                 if constexpr (config::use_tasking_profiler()){
-                    task_id_profiler = TaskingProfiler::getInstance().startTask(core_id, 0, typeid(*task).name());
+                    task_id_profiler = TaskingProfiler::getInstance().startTask(channel_id, 0, typeid(*task).name());
                     result = task->execute(core_id, channel_id);
                     TaskingProfiler::getInstance().endTask(channel_id, task_id_profiler);
                 }
@@ -136,7 +136,7 @@ void Worker::execute()
                 break;
             case synchronization::primitive::ReaderWriterLatch:
                 if constexpr (config::use_tasking_profiler()){
-                    task_id_profiler = TaskingProfiler::getInstance().startTask(core_id, 0, typeid(*task).name());
+                    task_id_profiler = TaskingProfiler::getInstance().startTask(channel_id, 0, typeid(*task).name());
                     result = Worker::execute_reader_writer_latched(core_id, channel_id, task);
                     TaskingProfiler::getInstance().endTask(channel_id, task_id_profiler);
                 }            
@@ -146,7 +146,8 @@ void Worker::execute()
                 break;
             case synchronization::primitive::ExclusiveLatch:
                 if constexpr (config::use_tasking_profiler()){
-                    task_id_profiler = TaskingProfiler::getInstance().startTask(core_id, 0, typeid(*task).name());
+                    task_id_profiler = TaskingProfiler::getInstance().startTask(channel_id, 0, typeid(*task).name());
+                    Genode::log("Core ", core_id, " Channel ", channel_id, " ScheduleWriter");
                     result = Worker::execute_exclusive_latched(core_id, channel_id, task);
                     TaskingProfiler::getInstance().endTask(channel_id, task_id_profiler);
                 }
