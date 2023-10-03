@@ -44,6 +44,7 @@ public:
 
 std::string printFloatUS(std::uint64_t ns)
 {
+    ns /= 1000;
     std::uint64_t remainder = ns % 1000;
     std::uint64_t front = ns / 1000;
     char strRemainder[4];
@@ -57,13 +58,10 @@ std::string printFloatUS(std::uint64_t ns)
 
     std::string message = std::to_string(front) + "." + strRemainder;
     return message;
-
 }
 
 void TaskingProfiler::init(std::uint16_t corenum)
 {
-
-
     relTime = std::chrono::high_resolution_clock::now();
 
     corenum++;
@@ -72,40 +70,37 @@ void TaskingProfiler::init(std::uint16_t corenum)
 
     //create an array of pointers to task_info structs
     task_data = new task_info*[total_cores];
-    
     for (std::uint8_t i = 0; i < total_cores; i++)
     {
-        std::uint8_t numa_id = mx::system::topology::node_id(i);
-        Topology::Numa_region const &node = mx::system::Environment::node(numa_id);
-        void *cast_evade = static_cast<void*>(new Genode::Regional_heap(mx::system::Environment::ram(), mx::system::Environment::rm(), const_cast<Topology::Numa_region&>(node)));
-        task_data[i] = static_cast<task_info*>(cast_evade);
-        /*
+        //std::uint8_t numa_id = mx::system::topology::node_id(i);
+        //Topology::Numa_region const &node = mx::system::Environment::node(numa_id);
+        //void *cast_evade = static_cast<void*>(new Genode::Regional_heap(mx::system::Environment::ram(), mx::system::Environment::rm(), const_cast<Topology::Numa_region&>(node)));
+        //task_data[i] = static_cast<task_info*>(cast_evade);
         task_data[i] = new task_info[mx::tasking::config::tasking_array_length()];
-        for(size_t j = mx::tasking::config::tasking_array_length(); j > 0; j--)
+        for(size_t j = mx::tasking::config::tasking_array_length() - 1; j > 0; j--)
         {
-            task_data[i][j] = {0, 0, NULL, tinit, tinit};
+            task_data[i][j] = {0, 0, nullptr, tinit, tinit};
             __builtin_prefetch(&task_data[i][j], 1, 3);
         }
-        */
     }
 
     //create an array of pointers to queue_info structs
     queue_data = new queue_info*[total_cores];
     for (std::uint16_t i = 0; i < total_cores; i++)
     {
-        std::uint8_t numa_id = mx::system::topology::node_id(i);
-        Topology::Numa_region const &node = mx::system::Environment::node(numa_id);
-        void *cast_evade = static_cast<void*>(new Genode::Regional_heap(mx::system::Environment::ram(), mx::system::Environment::rm(), const_cast<Topology::Numa_region&>(node)));
-        queue_data[i] = static_cast<queue_info*>(cast_evade);
-        /*
+        //std::uint8_t numa_id = mx::system::topology::node_id(i);
+        //Topology::Numa_region const &node = mx::system::Environment::node(numa_id);
+        //void *cast_evade = static_cast<void*>(new Genode::Regional_heap(mx::system::Environment::ram(), mx::system::Environment::rm(), const_cast<Topology::Numa_region&>(node)));
+        //queue_data[i] = static_cast<queue_info*>(cast_evade);
         queue_data[i] = new queue_info[mx::tasking::config::tasking_array_length()];
-        for(size_t j = mx::tasking::config::tasking_array_length(); j > 0; j--)
+        for(size_t j = mx::tasking::config::tasking_array_length() - 1; j > 0; j--)
         {
             queue_data[i][j] = {0, tinit};
             __builtin_prefetch(&queue_data[i][j], 1, 3);
         }
-        */
     }
+
+    /*
 
     //make prefetch tasks for each cpu
     for(int i = 0; i < corenum; i++){
@@ -113,8 +108,10 @@ void TaskingProfiler::init(std::uint16_t corenum)
         //prefetchTask->annotate(i);
         mx::tasking::runtime::spawn(*prefetchTask);
     }
-    
 
+
+
+    */
     task_id_counter = new std::uint64_t[total_cores]{0};
     queue_id_counter = new std::uint64_t[total_cores]{0};
 }
@@ -123,13 +120,15 @@ std::uint64_t TaskingProfiler::startTask(std::uint16_t cpu_core, std::uint32_t t
 {
     std::chrono::time_point<std::chrono::high_resolution_clock> start = std::chrono::high_resolution_clock::now();
     const std::uint16_t cpu_id = cpu_core;
-    const std::uint64_t tid = task_id_counter[cpu_id]++;
+    const std::uint64_t tid = task_id_counter[cpu_core];
+    
     task_info& ti = task_data[cpu_id][tid];
 
     ti.id = tid;
     ti.type = type;
     ti.name = name;
     ti._start = start;
+    __atomic_add_fetch(&task_id_counter[cpu_core], 1, __ATOMIC_SEQ_CST);
 
     std::chrono::time_point<std::chrono::high_resolution_clock> end = std::chrono::high_resolution_clock::now();
     overhead += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
@@ -146,37 +145,49 @@ void TaskingProfiler::endTask(std::uint16_t cpu_core, std::uint64_t id)
 
     std::chrono::time_point<std::chrono::high_resolution_clock> end = std::chrono::high_resolution_clock::now();
     overhead += std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+
 }
 
-void TaskingProfiler::enqueue(std::uint16_t corenum){
+void TaskingProfiler::enqueue(std::uint16_t cpu_core){
     std::chrono::time_point<std::chrono::high_resolution_clock> timestamp = std::chrono::high_resolution_clock::now();
     
-    const std::uint64_t qid = __atomic_add_fetch(&queue_id_counter[corenum], 1, __ATOMIC_SEQ_CST);
+    std::uint64_t qid = queue_id_counter[cpu_core];
 
-    queue_info& qi = queue_data[corenum][qid];
+    queue_info& qi = queue_data[cpu_core][qid];
     qi.id = qid;
     qi.timestamp = timestamp;
+
+    __atomic_add_fetch(&queue_id_counter[cpu_core], 1, __ATOMIC_SEQ_CST);
 
     std::chrono::time_point<std::chrono::high_resolution_clock> endTimestamp = std::chrono::high_resolution_clock::now();
     taskQueueOverhead += std::chrono::duration_cast<std::chrono::nanoseconds>(endTimestamp - timestamp).count();
 }
 
 void TaskingProfiler::saveProfile()
-{   
+{
     Genode::log("Saving Profile");
-    std::uint64_t overhead_ms = overhead/1000000;
-    Genode::log("Overhead-Time: ", overhead_ms*1000000, "ns in ms: ", overhead_ms, "ms");
-    std::uint64_t taskQueueOverhead_ms = taskQueueOverhead/1000000;
-    Genode::log("TaskQueueOverhead-Time: ", taskQueueOverhead_ms*1000000, "ns in ms: ", taskQueueOverhead_ms, "ms");
+    std::uint64_t overhead_ms = overhead / 1000000;
+    Genode::log("Overhead-Time: ", overhead_ms * 1000000, "ns in ms: ", overhead_ms, "ms");
+    std::uint64_t taskQueueOverhead_ms = taskQueueOverhead / 1000000;
+    Genode::log("TaskQueueOverhead-Time: ", taskQueueOverhead_ms * 1000000, "ns in ms: ", taskQueueOverhead_ms, "ms");
 
-    //get the number of tasks overal
+    // get the number of tasks overall
     std::uint64_t tasknum = 0;
     for (std::uint16_t i = 0; i < total_cores; i++)
     {
         tasknum += task_id_counter[i];
+        Genode::log("Core ", i, " task_id_counter: ", task_id_counter[i]);
+        Genode::log("Core ", i, " queue_id_counter: ", queue_id_counter[i]);        
     }
+
+    if(tasknum == 0) 
+    {
+        Genode::log("Error: Number of tasks is zero!");
+        return;
+    }
+
     Genode::log("Number of tasks: ", tasknum);
-    Genode::log("Overhead-Time per Task: ", overhead/tasknum, "ns");
+    Genode::log("Overhead-Time per Task: ", overhead / tasknum, "ns");
 
     bool first = false;
     std::uint64_t firstTime = 0;
@@ -198,8 +209,11 @@ void TaskingProfiler::saveProfile()
     Genode::log("{\"traceEvents\":[");
 
     //Events
-    for(std::uint16_t cpu_id = 0; cpu_id < total_cores; cpu_id++)
+    for (std::uint16_t cpu_id = 0; cpu_id < total_cores; cpu_id++)
     {
+        task_info ti;
+        queue_info qi;
+
         //Metadata Events for each core (CPU instead of process as name,...)
         Genode::log("{\"name\":\"process_name\",\"ph\":\"M\",\"pid\":", cpu_id, ",\"tid\":", cpu_id, ",\"args\":{\"name\":\"CPU\"}},");
         Genode::log("{\"name\":\"process_sort_index\",\"ph\":\"M\",\"pid\":", cpu_id, ",\"tid\":", cpu_id, ",\"args\":{\"name\":", cpu_id, "}},");
@@ -207,30 +221,28 @@ void TaskingProfiler::saveProfile()
         if (mx::tasking::config::use_task_queue_length()){
             taskQueueLength = 0;
             taskCounter = 0;
-            queueCounter = 1;
+            queueCounter = 0;
 
             //Initial taskQueueLength is zero
             timestampString = printFloatUS(0);
             Genode::log("{\"pid\":", cpu_id, ",\"name\":\"CPU", cpu_id, "\",\"ph\":\"C\",\"ts\":", timestampString.c_str(), ",\"args\":{\"TaskQueueLength\":", taskQueueLength, "}},");
 
             //go through all tasks and queues
-            while(taskCounter<task_id_counter[cpu_id] || queueCounter<queue_id_counter[cpu_id]){
-                //get the next task and queue
-                queue_info& qi = queue_data[cpu_id][queueCounter];
-                task_info& ti = task_data[cpu_id][taskCounter];
-
-                //get the time from the queue element if existing
-                if(queueCounter < queue_id_counter[cpu_id]){
-                    timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(qi.timestamp - relTime).count();
+            while ((taskCounter < task_id_counter[cpu_id]) || (queueCounter < queue_id_counter[cpu_id]))
+            {
+                ti = task_data[cpu_id][taskCounter];
+                start = std::chrono::duration_cast<std::chrono::nanoseconds>(ti._start - relTime).count();
+                end = std::chrono::duration_cast<std::chrono::nanoseconds>(ti._end - relTime).count();
+                char *name_temp = abi::__cxa_demangle(ti.name, 0, 0, 0);
+                name = name_temp;
+                if (name == nullptr){
+                    name = "no_name_provided";
                 }
+                //::free(name_temp);  Free the memory
 
-                //get the time's from the task element if existing
-                if(taskCounter < task_id_counter[cpu_id]){
-                    start = std::chrono::duration_cast<std::chrono::nanoseconds>(ti._start - relTime).count();
-                    end = std::chrono::duration_cast<std::chrono::nanoseconds>(ti._end - relTime).count();
-                    name = abi::__cxa_demangle(ti.name, 0, 0, 0);
-                }
-
+                qi = queue_data[cpu_id][queueCounter];
+                timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(qi.timestamp - relTime).count();
+                
                 //get the first time
                 if(!first){
                     first = true;
@@ -243,7 +255,7 @@ void TaskingProfiler::saveProfile()
                 }
                 //if the queue element is before the task element, it is an enqueue
                 //if same time, we print queue first
-                if(qi.timestamp <= ti._start && queueCounter <= queue_id_counter[cpu_id]){
+                if((qi.timestamp <= ti._start || taskQueueLength == 0) && queueCounter <= queue_id_counter[cpu_id]){
                     queueCounter++;
                     taskQueueLength++;
 
@@ -259,7 +271,6 @@ void TaskingProfiler::saveProfile()
                         }
                     }
                     Genode::log("{\"pid\":", cpu_id, ",\"name\":\"CPU", cpu_id,  "\",\"ph\":\"C\",\"ts\":", timestampString.c_str(), ",\"args\":{\"TaskQueueLength\":", taskQueueLength, "}},");
-
                 }
                 //else we print the task itself and a dequeue
                 else{
@@ -280,15 +291,11 @@ void TaskingProfiler::saveProfile()
                     if(taskCounter == task_id_counter[cpu_id] && ti._end == tinit){
                         end = start + 1000;
                     }
-                    //Task itself
-                    Genode::log("{\"pid\":", cpu_id, ",\"tid\":", cpu_id, ",\"ts\":", timestampString.c_str(), ",\"dur\":", printFloatUS(end-start).c_str(), ",\"ph\":\"X\",\"name\":\"", std::string(name).c_str(), "\",\"args\":{\"type\":", ti.type, "}},");
-                    
-                    //reset throughput
-                    //Genode::log("{\"pid\":", cpu_id, ",\"name\":\"CPU", cpu_id,  "\",\"ph\":\"C\",\"ts\":", timestampString.c_str(), ",\"args\":{\"TaskThroughput\":", 0, "}},");
 
-                    duration = end - start;
-                    if (end - start < 0){
+                    if (start > end) {
                         duration = 1000;
+                    } else {
+                        duration = end - start;
                     }
 
                     //Task Throughput
@@ -297,10 +304,18 @@ void TaskingProfiler::saveProfile()
                         //ask what to do if duration is zero
                         duration = 1;
                         throughput = 0;
-                    }
+                    }                    
                     else{
                         throughput = 1000/duration;
                     }
+
+                    //Task itself
+                    Genode::log("{\"pid\":", cpu_id, ",\"tid\":", cpu_id, ",\"ts\":", timestampString.c_str(), ",\"dur\":", printFloatUS(duration).c_str(), ",\"ph\":\"X\",\"name\":\"", std::string(name).c_str(), "\",\"args\":{\"type\":", ti.type, "}},");
+                    
+                    //reset throughput
+                    //Genode::log("{\"pid\":", cpu_id, ",\"name\":\"CPU", cpu_id,  "\",\"ph\":\"C\",\"ts\":", timestampString.c_str(), ",\"args\":{\"TaskThroughput\":", 0, "}},");
+
+
                     Genode::log("{\"pid\":", cpu_id, ",\"name\":\"CPU", cpu_id,  "\",\"ph\":\"C\",\"ts\":", timestampString.c_str(), ",\"args\":{\"TaskThroughput\":", throughput, "}},");
                     lastEndTime = end;
                 }
@@ -319,6 +334,12 @@ void TaskingProfiler::saveProfile()
                 end = std::chrono::duration_cast<std::chrono::nanoseconds>(ti._end - relTime).count();
                 name = abi::__cxa_demangle(ti.name, 0, 0, 0);
 
+                if (start > end) {
+                    duration = 1000;
+                } else {
+                    duration = end - start;
+                }
+
                 //Task itself
                 timestampString = printFloatUS(start-firstTime);
                 Genode::log("{\"pid\":", cpu_id, ",\"tid\":", cpu_id, ",\"ts\":", timestampString.c_str(), ",\"dur\":", printFloatUS(end-start).c_str(), ",\"ph\":\"X\",\"name\":\"", std::string(name).c_str(), "\",\"args\":{\"type\":", ti.type, "}},");
@@ -328,8 +349,7 @@ void TaskingProfiler::saveProfile()
                     timestampString = printFloatUS(lastEndTime - firstTime);
                     Genode::log("{\"pid\":", cpu_id, ",\"name\":\"CPU", cpu_id,  "\",\"ph\":\"C\",\"ts\":", timestampString.c_str(), ",\"args\":{\"TaskThroughput\":", 0, "}},");
                 }
-                duration = end - start;
-
+                
                 //Task Throughput
                 timestampString = printFloatUS(start-firstTime);
                 throughput = 1000/duration;
@@ -339,9 +359,9 @@ void TaskingProfiler::saveProfile()
         }
         lastEndTime = 0;
     }
-            //sample Task (so we dont need to remove the last comma)
-            Genode::log("{\"name\":\"sample\",\"ph\":\"P\",\"ts\":0,\"pid\":5,\"tid\":0}");
-            Genode::log("]}");
+    //sample Task (so we dont need to remove the last comma)
+    Genode::log("{\"name\":\"sample\",\"ph\":\"P\",\"ts\":0,\"pid\":5,\"tid\":0}");
+    Genode::log("]}");
 }
 
 //Destructor
