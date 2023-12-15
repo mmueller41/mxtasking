@@ -140,14 +140,21 @@ public:
 
     std::uint8_t numa_node_id() { return _numa_node_id; }
 
-    TaskInterface* steal_task() noexcept {
+    std::unique_ptr<mx::util::Queue<TaskInterface>> steal() noexcept {
+        std::unique_ptr<mx::util::Queue<TaskInterface>> stolenQueue = nullptr;
         if (!_local_queues[mx::tasking::priority::normal].empty()) {
-            return _local_queues[mx::tasking::priority::normal].pop_front();
+            stolenQueue = std::make_unique<mx::util::Queue<TaskInterface>>();
+            while (!_local_queues[mx::tasking::priority::normal].empty()) {
+                stolenQueue->push_back(_local_queues[mx::tasking::priority::normal].pop_front());
+            }
         } 
         else if (!_local_queues[mx::tasking::priority::low].empty()) {
-            return _local_queues[mx::tasking::priority::low].pop_front();
+            stolenQueue = std::make_unique<mx::util::Queue<TaskInterface>>();
+            while (!_local_queues[mx::tasking::priority::low].empty()) {
+                stolenQueue->push_back(_local_queues[mx::tasking::priority::low].pop_front());
+            }
         }
-        return nullptr;
+        return stolenQueue;
     }
 
 private:
