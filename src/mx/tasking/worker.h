@@ -32,6 +32,16 @@ public:
      */
     void execute();
 
+    static void *entry(void *args) { 
+        Worker *worker = static_cast<Worker *>(args);
+        if (worker == nullptr) {
+            Genode::error("No worker found.");
+            return nullptr;
+        }
+        worker->execute();
+        return nullptr;
+    }
+
     /**
      * @return Id of the logical core this worker runs on.
      */
