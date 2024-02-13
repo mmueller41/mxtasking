@@ -12,6 +12,7 @@
 #include <chrono>
 #include <base/log.h>
 #include <trace/timestamp.h>
+#include <nova/syscalls.h>
 
 using namespace mx::tasking;
 
@@ -27,12 +28,12 @@ Worker::Worker(const std::uint16_t id, const std::uint16_t target_core_id, const
 
 void Worker::execute()
 {
-    { 
+    /*{ 
         Genode::Thread *self = Genode::Thread::myself();
         Genode::Affinity::Location loc = system::Environment::location(_target_core_id);
 
         self->pin(loc);
-    }
+    }*/
 
     while (this->_is_running == false)
     {
@@ -41,10 +42,11 @@ void Worker::execute()
 
     TaskInterface *task;
     const auto core_id = system::topology::core_id();
-    assert(this->_target_core_id == core_id && "Worker not pinned to correct core.");
+    //assert(this->_target_core_id == core_id && "Worker not pinned to correct core.");
     const auto channel_id = this->_channel.id();
+    const auto phys_core_id = system::Environment::topo().phys_id(Genode::Thread::myself()->affinity());
 
-
+    std::uint64_t *volatile tukija_signal = &_tukija_signal[phys_core_id];
 
     while (this->_is_running)
     {
@@ -54,6 +56,10 @@ void Worker::execute()
         }
 
         this->_channel_size = this->_channel.fill();
+
+        if (this->_channel_size == 0) {
+            Nova::yield(true);
+        }
 
         if constexpr (config::task_statistics())
         {
@@ -129,6 +135,10 @@ void Worker::execute()
             if (result.is_remove())
             {
                 runtime::delete_task(core_id, task);
+            }
+
+            if (__atomic_load_n(tukija_signal, __ATOMIC_SEQ_CST)) {
+                Nova::yield(false);
             }
         }
     }
