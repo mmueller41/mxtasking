@@ -113,6 +113,11 @@ public:
      */
     void enter_epoch_periodically();
 
+    static void *enter(void *args) { EpochManager *mgr = static_cast<EpochManager *>(args);
+        mgr->enter_epoch_periodically();
+        return nullptr;
+    }
+
     /**
      * Reclaims all garbage, mainly right before shut down tasking.
      */
