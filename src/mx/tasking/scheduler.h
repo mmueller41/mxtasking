@@ -27,7 +27,7 @@ class Scheduler
 {
 public:
     Scheduler(const util::core_set &core_set, std::uint16_t prefetch_distance,
-              memory::dynamic::Allocator &resource_allocator) noexcept;
+              memory::dynamic::Allocator &resource_allocator, std::uint64_t * volatile signal_page) noexcept;
     ~Scheduler() noexcept;
 
     /**
