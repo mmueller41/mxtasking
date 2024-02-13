@@ -20,7 +20,7 @@ namespace mx::tasking {
 class alignas(64) Worker
 {
 public:
-    Worker(std::uint16_t id, std::uint16_t target_core_id, std::uint16_t target_numa_node_id,
+    Worker(std::uint16_t id, std::uint16_t target_core_id, std::uint16_t target_numa_node_id, std::uint64_t* volatile tukija_sig,
            const util::maybe_atomic<bool> &is_running, std::uint16_t prefetch_distance,
            memory::reclamation::LocalEpoch &local_epoch, const std::atomic<memory::reclamation::epoch_t> &global_epoch,
            profiling::Statistic &statistic) noexcept;
@@ -67,6 +67,9 @@ private:
 
     // Flag for "running" state of MxTasking.
     const util::maybe_atomic<bool> &_is_running;
+
+    // Communication channel to Tukija
+    std::uint64_t *volatile _tukija_signal;
 
     /**
      * Analyzes the given task and chooses the execution method regarding synchronization.
