@@ -6,9 +6,12 @@
 #include <mx/memory/dynamic_size_allocator.h>
 #include <mx/memory/fixed_size_allocator.h>
 #include <mx/memory/task_allocator_interface.h>
+#include <base/attached_ram_dataspace.h>
 #include <mx/resource/builder.h>
 #include <mx/util/core_set.h>
 #include <utility>
+#include <nova/syscalls.h>
+#include <base/log.h>
 
 namespace mx::tasking {
 /**
@@ -30,6 +33,14 @@ public:
     static bool init(const util::core_set &core_set, const std::uint16_t prefetch_distance,
                      const bool use_system_allocator)
     {
+        // Create the Tukija signal page if necessary
+        if (!_signal_page) {
+            Genode::Ram_dataspace_capability ds = mx::system::Environment::ram().alloc(4096);
+            _signal_page = static_cast<std::uint64_t *>(mx::system::Environment::rm().attach(ds));
+            std::memset(_signal_page, 0, 4096);
+
+            Nova::mxinit(0, 0, reinterpret_cast<Nova::mword_t>(_signal_page));
+        }
         // Are we ready to re-initialize the scheduler?
         if (_scheduler != nullptr && _scheduler->is_running())
         {
@@ -70,7 +81,7 @@ public:
         if (need_new_scheduler)
         {
             _scheduler.reset(new (memory::GlobalHeap::allocate_cache_line_aligned(sizeof(Scheduler)))
-                                 Scheduler(core_set, prefetch_distance, *_resource_allocator));
+                                 Scheduler(core_set, prefetch_distance, *_resource_allocator, _signal_page));
         }
         else
         {
@@ -244,6 +255,9 @@ private:
 
     // Allocator to allocate data objects.
     inline static std::unique_ptr<resource::Builder> _resource_builder = {nullptr};
+
+    // Shared page holding the signal channels for each Worker
+    static std::uint64_t *volatile _signal_page;
 };
 
 /**
