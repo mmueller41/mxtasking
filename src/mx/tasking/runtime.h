@@ -136,6 +136,8 @@ public:
      */
     static void stop() noexcept { _scheduler->interrupt(); }
 
+    static void resume() noexcept { _scheduler->resume(); }
+
     /**
      * Creates a new task.
      * @param core_id Core to allocate memory from.

@@ -9,6 +9,8 @@
 #include <mx/tasking/runtime.h>
 #include <internal/thread_create.h>
 #include <base/affinity.h>
+#include <base/thread.h>
+#include <nova/syscalls.h>
 
 using namespace mx::tasking;
 
@@ -60,19 +62,29 @@ void Scheduler::start_and_wait()
     std::vector<pthread_t> worker_threads(space.total() +
                                           static_cast<std::uint16_t>(config::memory_reclamation() != config::None));
 
-    for (auto cpu = 0U; cpu < space.total(); ++cpu) {
+    Nova::mword_t start_cpu = 0;
+    Nova::cpu_id(start_cpu);
+    
+    for (auto cpu = 1U; cpu < space.total(); ++cpu) {
         Genode::String<32> const name{"worker", cpu};
         Libc::pthread_create_from_session(&worker_threads[cpu], Worker::entry, _worker[cpu], 4 * 4096, name.string(),
-                                          &mx::system::Environment::cpu(), space.location_of_index(cpu));
+                                          &mx::system::Environment::envp()->cpu(), space.location_of_index(cpu));
     }
 
-        
-        // ... and epoch management (if enabled).
-        if constexpr (config::memory_reclamation() != config::None)
-        {
-            // In case we enable memory reclamation: Use an additional thread.
-                &worker_threads[space.total()], mx::memory::reclamation::EpochManager::enter, &this->_epoch_manager,
-                4 * 4096, "epoch_manager", &mx::system::Environment::cpu(), space.location_of_index(space.total());
+
+    Genode::log("Creating foreman thread on CPU ", start_cpu);
+
+    Libc::pthread_create_from_session(&worker_threads[0], Worker::entry, _worker[0], 4 * 4096, "foreman",
+                                      &mx::system::Environment::envp()->cpu(), space.location_of_index(0) );
+
+    Genode::log("Created foreman thread");
+
+    // ... and epoch management (if enabled).
+    if constexpr (config::memory_reclamation() != config::None)
+    {
+        // In case we enable memory reclamation: Use an additional thread.
+        &worker_threads[space.total()], mx::memory::reclamation::EpochManager::enter, &this->_epoch_manager, 4 * 4096,
+            "epoch_manager", &mx::system::Environment::cpu(), space.location_of_index(space.total());
         }
 
         // Turning the flag on starts all worker threads to execute tasks.

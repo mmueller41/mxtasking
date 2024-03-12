@@ -53,7 +53,9 @@ public:
     * @return Libc::Env& 
     */
     static Libc::Env &env() { return Environment::get_instance().getenv(); }
-    
+
+    static Libc::Env *envp() { return Environment::get_instance()._env; }
+
     /**
      * @brief Set the libc env object
      * 

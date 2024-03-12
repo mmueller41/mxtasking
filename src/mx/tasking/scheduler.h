@@ -58,6 +58,9 @@ public:
         this->_profiler.stop();
     }
 
+    void resume() noexcept { _is_running = true;
+    }
+
     /**
      * @return Core set of this instance.
      */

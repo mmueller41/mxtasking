@@ -34,19 +34,26 @@ void Worker::execute()
 
         self->pin(loc);
     }*/
+    if (_channel.id() != 0)
+        sleep();
 
     while (this->_is_running == false)
     {
         system::builtin::pause();
     }
 
+
     TaskInterface *task;
     const auto core_id = system::topology::core_id();
     //assert(this->_target_core_id == core_id && "Worker not pinned to correct core.");
     const auto channel_id = this->_channel.id();
-    const auto phys_core_id = system::Environment::topo().phys_id(Genode::Thread::myself()->affinity());
+    Nova::mword_t pcpu = 0;
+    Nova::cpu_id(pcpu);
 
-    std::uint64_t *volatile tukija_signal = &_tukija_signal[phys_core_id];
+    _phys_core_id = pcpu;
+
+    //Genode::log("Worker ", _channel.id(), "(", _phys_core_id ,")", " woke up");
+    std::uint64_t *volatile tukija_signal = &_tukija_signal[_phys_core_id];
 
     while (this->_is_running)
     {
@@ -58,7 +65,9 @@ void Worker::execute()
         this->_channel_size = this->_channel.fill();
 
         if (this->_channel_size == 0) {
-            Nova::yield(true);
+            //Genode::log("Channel ", _channel.id(), " empty. Going to sleep");
+            sleep();
+            //Genode::log("Worker on CPU ", _phys_core_id, " woke up at ", Genode::Trace::timestamp());
         }
 
         if constexpr (config::task_statistics())
@@ -138,10 +147,13 @@ void Worker::execute()
             }
 
             if (__atomic_load_n(tukija_signal, __ATOMIC_SEQ_CST)) {
-                Nova::yield(false);
+                Genode::log("Got yield signal ", _phys_core_id);
+                yield();
             }
         }
     }
+    //Genode::log("Worker on CPU ", _phys_core_id, " going to stop");
+    sleep();
 }
 
 TaskResult Worker::execute_exclusive_latched(const std::uint16_t core_id, const std::uint16_t channel_id,

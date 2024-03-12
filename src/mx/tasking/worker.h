@@ -12,6 +12,8 @@
 #include <mx/util/maybe_atomic.h>
 #include <variant>
 #include <vector>
+#include <nova/syscalls.h>
+#include <base/log.h>
 
 namespace mx::tasking {
 /**
@@ -42,6 +44,19 @@ public:
         return nullptr;
     }
 
+    void wake() { _is_sleeping = false;
+        //Genode::log("Waking worker ", _channel.id(), " on CPU ", _phys_core_id);
+        if (Nova::wake_core(static_cast<Nova::mword_t>(_phys_core_id)) != Nova::NOVA_OK)
+            ;
+        //Genode::log("Failed to wake up worker on CPU ", _phys_core_id);
+        /*Nova::mword_t alloc;
+        Nova::alloc_cores(1, alloc);
+        Genode::log("Woke core cmap = ", alloc);*/
+    }
+
+    bool sleeping() { return _is_sleeping; }
+
+
     /**
      * @return Id of the logical core this worker runs on.
      */
@@ -56,6 +71,8 @@ private:
 
     // Distance of prefetching tasks.
     const std::uint16_t _prefetch_distance;
+
+    std::uint16_t _phys_core_id{0};
 
     std::int32_t _channel_size{0U};
 
@@ -80,6 +97,18 @@ private:
 
     // Communication channel to Tukija
     std::uint64_t *volatile _tukija_signal;
+
+    // Flag for "sleeping" state of this worker
+    util::maybe_atomic<bool> _is_sleeping{false};
+
+    void sleep() { //_is_sleeping = true;
+        Nova::yield();
+    }
+
+    void yield() { _is_sleeping = true;
+        Nova::yield(false);
+    }
+
 
     /**
      * Analyzes the given task and chooses the execution method regarding synchronization.

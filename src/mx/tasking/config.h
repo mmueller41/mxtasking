@@ -28,6 +28,6 @@ public:
     // If enabled, memory will be reclaimed while using optimistic
     // synchronization by epoch-based reclamation. Otherwise, freeing
     // memory is unsafe.
-    static constexpr auto memory_reclamation() { return memory_reclamation_scheme::UpdateEpochPeriodically; }
+    static constexpr auto memory_reclamation() { return memory_reclamation_scheme::None; }
 };
 } // namespace mx::tasking
