@@ -20,8 +20,8 @@ Worker::Worker(const std::uint16_t id, const std::uint16_t target_core_id, const
                const util::maybe_atomic<bool> &is_running, const std::uint16_t prefetch_distance,
                memory::reclamation::LocalEpoch &local_epoch,
                const std::atomic<memory::reclamation::epoch_t> &global_epoch, profiling::Statistic &statistic) noexcept
-    : _target_core_id(target_core_id), _tukija_signal(tukija_sig), _prefetch_distance(prefetch_distance),
-      _channel(id, target_numa_node_id, prefetch_distance), _local_epoch(local_epoch), _global_epoch(global_epoch),
+    : _target_core_id(target_core_id), _target_numa_node_id(target_numa_node_id), _tukija_signal(tukija_sig), _prefetch_distance(prefetch_distance),
+      _id(id), _local_epoch(local_epoch), _global_epoch(global_epoch),
       _statistic(statistic), _is_running(is_running)
 {
 }
@@ -34,7 +34,7 @@ void Worker::execute()
 
         self->pin(loc);
     }*/
-    if (_channel.id() != 0)
+    if (_id != 0)
         sleep();
 
     while (this->_is_running == false)
@@ -46,7 +46,6 @@ void Worker::execute()
     TaskInterface *task;
     const auto core_id = system::topology::core_id();
     //assert(this->_target_core_id == core_id && "Worker not pinned to correct core.");
-    const auto channel_id = this->_channel.id();
     Nova::mword_t pcpu = 0;
     Nova::cpu_id(pcpu);
 
@@ -55,6 +54,9 @@ void Worker::execute()
     //Genode::log("Worker ", _channel.id(), "(", _phys_core_id ,")", " woke up");
     std::uint64_t *volatile tukija_signal = &_tukija_signal[_phys_core_id];
 
+    this->current = this->_channels.pop_front();
+    auto channel_id = current->id();
+
     while (this->_is_running)
     {
         if constexpr (config::memory_reclamation() == config::UpdateEpochPeriodically)
@@ -62,9 +64,9 @@ void Worker::execute()
             this->_local_epoch.enter(this->_global_epoch);
         }
 
-        this->_channel_size = this->_channel.fill();
+        this->current->fill();
 
-        if (this->_channel_size == 0) {
+        if (this->current->size() == 0) {
             //Genode::log("Channel ", _channel.id(), " empty. Going to sleep");
             sleep();
             //Genode::log("Worker on CPU ", _phys_core_id, " woke up at ", Genode::Trace::timestamp());
@@ -75,19 +77,19 @@ void Worker::execute()
             this->_statistic.increment<profiling::Statistic::Fill>(channel_id);
         }
 
-        while ((task = this->_channel.next()) != nullptr)
+        while ((task = this->current->next()) != nullptr)
         {
             // Whenever the worker-local task-buffer falls under
             // the prefetch distance, we re-fill the buffer to avoid
             // empty slots in the prefetch-buffer.
-            if (--this->_channel_size <= this->_prefetch_distance)
+            if (this->current->decrement() <= this->_prefetch_distance)
             {
                 if constexpr (config::memory_reclamation() == config::UpdateEpochPeriodically)
                 {
                     this->_local_epoch.enter(this->_global_epoch);
                 }
 
-                this->_channel_size = this->_channel.fill();
+                this->current->fill();
                 if constexpr (config::task_statistics())
                 {
                     this->_statistic.increment<profiling::Statistic::Fill>(channel_id);

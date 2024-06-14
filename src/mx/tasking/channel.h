@@ -82,6 +82,7 @@ public:
         {
             size = fill<priority::low>(config::task_buffer_size());
         }
+        _size = size;
 
         return size;
     }
@@ -140,6 +141,10 @@ public:
 
     std::uint8_t numa_node_id() { return _numa_node_id; }
 
+    std::uint32_t size() { return _size; }
+
+    std::uint32_t decrement() { return --_size; }
+
 private:
     // Backend queues for multiple produces in different NUMA regions and different priorities,
     alignas(64)
@@ -153,6 +158,9 @@ private:
 
     // Id of this channel.
     const std::uint16_t _id;
+
+    // Size of this channel
+    std::int32_t _size{0U};
 
     // NUMA id of the worker thread owning this channel.
     const std::uint8_t _numa_node_id;

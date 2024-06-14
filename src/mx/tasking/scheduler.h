@@ -98,7 +98,7 @@ public:
      */
     void predict_usage(const std::uint16_t channel_id, const resource::hint::expected_access_frequency usage) noexcept
     {
-        _worker[channel_id]->channel().predict_usage(usage);
+        _channels[channel_id]->predict_usage(usage);
     }
 
     /**
@@ -111,7 +111,7 @@ public:
                                 const resource::hint::expected_access_frequency old_prediction,
                                 const resource::hint::expected_access_frequency new_prediction) noexcept
     {
-        _worker[channel_id]->channel().modify_predicted_usage(old_prediction, new_prediction);
+        _channels[channel_id]->modify_predicted_usage(old_prediction, new_prediction);
     }
 
     /**
@@ -120,7 +120,7 @@ public:
      */
     [[nodiscard]] bool has_excessive_usage_prediction(const std::uint16_t channel_id) const noexcept
     {
-        return _worker[channel_id]->channel().has_excessive_usage_prediction();
+        return _channels[channel_id]->has_excessive_usage_prediction();
     }
 
     /**
@@ -179,7 +179,7 @@ private:
     const util::core_set _core_set;
 
     // Number of all channels.
-    const std::uint16_t _count_channels;
+    std::uint16_t _count_channels;
 
     // Flag for the worker threads. If false, the worker threads will stop.
     // This is atomic for hardware that does not guarantee atomic reads/writes of booleans.
@@ -187,6 +187,8 @@ private:
 
     // All initialized workers.
     alignas(64) std::array<Worker *, config::max_cores()> _worker{nullptr};
+
+    alignas(64) std::array<Channel *, config::max_cores()> _channels{nullptr};
 
     // Map of channel id to NUMA region id.
     alignas(64) std::array<std::uint8_t, config::max_cores()> _channel_numa_node_map{0U};

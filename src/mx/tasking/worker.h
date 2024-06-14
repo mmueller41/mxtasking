@@ -14,6 +14,7 @@
 #include <vector>
 #include <nova/syscalls.h>
 #include <base/log.h>
+#include <mx/util/bound_mpmc_queue.h>
 
 namespace mx::tasking {
 /**
@@ -56,32 +57,49 @@ public:
 
     bool sleeping() { return _is_sleeping; }
 
+    /**
+     * Steal a channel from another worker
+    */
+    bool steal();
+
+    /**
+     * Assign a channel to this worker
+     * This method is called by the scheduler to assign each worker an initial channel upon start. That's because initially none of the workers has any channel assigned yet. If it would try to steal one from another worker upon initialization it would not find a channel to begin with. Since this would apply for all channels the application would just stall forever, never finding a channel to steal.
+    */
+    void assign(Channel *channel) { _channels.push_back(channel); }
 
     /**
      * @return Id of the logical core this worker runs on.
      */
     [[nodiscard]] std::uint16_t core_id() const noexcept { return _target_core_id; }
 
-    [[nodiscard]] Channel &channel() noexcept { return _channel; }
-    [[nodiscard]] const Channel &channel() const noexcept { return _channel; }
+    /*[[nodiscard]] Channel &channel() noexcept { return _channel; }
+    [[nodiscard]] const Channel &channel() const noexcept { return _channel; }*/
+
+    [[nodiscard]] std::uint16_t numa_id() const noexcept { return _target_numa_node_id; }
 
 private:
     // Id of the logical core.
     const std::uint16_t _target_core_id;
+
+    const std::uint16_t _target_numa_node_id;
 
     // Distance of prefetching tasks.
     const std::uint16_t _prefetch_distance;
 
     std::uint16_t _phys_core_id{0};
 
-    std::int32_t _channel_size{0U};
+    std::uint16_t _id{0};
+    // std::int32_t _channel_size{0U};
 
     // Stack for persisting tasks in optimistic execution. Optimistically
     // executed tasks may fail and be restored after execution.
     alignas(64) TaskStack _task_stack;
 
     // Channel where tasks are stored for execution.
-    alignas(64) Channel _channel;
+    alignas(64) util::BoundMPMCQueue<Channel *> _channels{config::max_cores()};
+
+    alignas(64) Channel *current{nullptr};
 
     // Local epoch of this worker.
     memory::reclamation::LocalEpoch &_local_epoch;
