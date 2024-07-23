@@ -23,9 +23,15 @@ Benchmark::Benchmark(benchmark::Cores &&cores, const std::uint16_t iterations, s
     {
         this->_chronometer.add(benchmark::Perf::CYCLES);
         this->_chronometer.add(benchmark::Perf::INSTRUCTIONS);
-        this->_chronometer.add(benchmark::Perf::STALLS_MEM_ANY);
-        this->_chronometer.add(benchmark::Perf::SW_PREFETCH_ACCESS_NTA);
-        this->_chronometer.add(benchmark::Perf::SW_PREFETCH_ACCESS_WRITE);
+        //this->_chronometer.add(benchmark::Perf::STALLS_MEM_ANY);
+        //this->_chronometer.add(benchmark::Perf::SW_PREFETCH_ACCESS_NTA);
+        //this->_chronometer.add(benchmark::Perf::SW_PREFETCH_ACCESS_WRITE);
+        this->_chronometer.add(benchmark::Perf::LLC_MISSES);
+        this->_chronometer.add(benchmark::Perf::DTLB_READ_MISSES);
+        this->_chronometer.add(benchmark::Perf::DTLB_STORE_MISSES);
+        this->_chronometer.add(benchmark::Perf::ITLB_LOAD_MISSES);
+        this->_chronometer.add(benchmark::Perf::SW_PAGE_FAULTS_MAJOR);
+        this->_chronometer.add(benchmark::Perf::SW_PAGE_FAULTS_MINOR);
     }
 
     std::cout << "core configuration: \n" << this->_cores.dump(2) << std::endl;
@@ -53,7 +59,10 @@ void Benchmark::start()
     {
         this->_request_scheduler.clear();
     }
-
+    
+    auto *start_task = mx::tasking::runtime::new_task<StartMeasurementTask>(0U, *this);
+    mx::tasking::runtime::spawn(*start_task, 0U);
+    
     // Create one request scheduler per core.
     for (auto core_index = 0U; core_index < this->_cores.current().size(); core_index++)
     {
@@ -70,8 +79,8 @@ void Benchmark::start()
     {
         mx::tasking::runtime::profile(this->profile_file_name());
     }
-    this->_chronometer.start(static_cast<std::uint16_t>(static_cast<benchmark::phase>(this->_workload)),
-                             this->_current_iteration + 1, this->_cores.current());
+    //this->_chronometer.start(static_cast<std::uint16_t>(static_cast<benchmark::phase>(this->_workload)),
+      //                       this->_current_iteration + 1, this->_cores.current());
 }
 
 const mx::util::core_set &Benchmark::core_set()
@@ -109,6 +118,14 @@ void Benchmark::requests_finished()
 
     if (open_requests == 0U) // All request schedulers are done.
     {
+        std::uint16_t core_id = mx::system::topology::core_id();
+        if (core_id != 0) { 
+            this->_open_requests++;
+            auto *stop_task = mx::tasking::runtime::new_task<StopMeasurementTask>(0U, *this);
+            stop_task->annotate(static_cast<mx::tasking::TaskInterface::channel>(0));
+            mx::tasking::runtime::spawn(*stop_task, core_id);
+            return;
+        }
         // Stop and print time (and performance counter).
         const auto result = this->_chronometer.stop(this->_workload.size());
         mx::tasking::runtime::stop();
@@ -193,7 +210,7 @@ void Benchmark::requests_finished()
 
 std::string Benchmark::profile_file_name() const
 {
-    return "profiling-" + std::to_string(this->_cores.current().size()) + "-cores" + "-phase-" +
-           std::to_string(static_cast<std::uint16_t>(static_cast<benchmark::phase>(this->_workload))) + "-iteration-" +
-           std::to_string(this->_current_iteration) + ".json";
+    return "profiling-" + std::to_string(static_cast<int>(this->_cores.current().size())) + "-cores" + "-phase-" +
+           std::to_string(static_cast<int>(static_cast<benchmark::phase>(this->_workload))) + "-iteration-" +
+           std::to_string(static_cast<int>(this->_current_iteration)) + ".json";
 }

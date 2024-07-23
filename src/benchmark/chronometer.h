@@ -7,6 +7,7 @@
 #include <mx/tasking/config.h>
 #include <mx/tasking/profiling/statistic.h>
 #include <mx/tasking/runtime.h>
+#include <mx/system/environment.h>
 #include <mx/util/core_set.h>
 #include <numeric>
 #include <ostream>
@@ -177,15 +178,16 @@ public:
         _core_set = core_set;
 
         _perf.start();
-        _start = std::chrono::steady_clock::now();
+        _start = mx::system::Environment::timestamp(); // std::chrono::steady_clock::now();
     }
 
     InterimResult<P> stop(const std::uint64_t count_operations)
     {
-        const auto end = std::chrono::steady_clock::now();
+        const auto end = mx::system::Environment::timestamp();  // std::chrono::steady_clock::now();
         _perf.stop();
 
-        const auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(end - _start);
+        const auto milliseconds = std::chrono::milliseconds(
+            (end - _start) / 2000000UL); // std::chrono::duration_cast<std::chrono::milliseconds>(end - _start);
 
         return {count_operations,
                 _current_phase,
@@ -209,7 +211,8 @@ private:
     P _current_phase;
     mx::util::core_set _core_set;
     alignas(64) Perf _perf;
-    alignas(64) std::chrono::steady_clock::time_point _start;
+    //alignas(64) std::chrono::steady_clock::time_point _start;
+    alignas(64) uint64_t _start;
 
     std::unordered_map<std::uint16_t, std::uint64_t> statistic_map(
         const mx::tasking::profiling::Statistic::Counter counter)

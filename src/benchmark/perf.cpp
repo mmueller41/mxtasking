@@ -24,6 +24,13 @@ using namespace benchmark;
  */
 [[maybe_unused]] PerfCounter Perf::LLC_MISSES = {"llc-miss", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES};
 
+[[maybe_unused]] PerfCounter Perf::DTLB_READ_MISSES = {"dtlb-read-miss", PERF_TYPE_HW_CACHE, 0x10003};
+[[maybe_unused]] PerfCounter Perf::DTLB_STORE_MISSES = {"dtlb-store-miss", PERF_TYPE_HW_CACHE, 0x10103};
+[[maybe_unused]] PerfCounter Perf::ITLB_LOAD_MISSES = {"itlb-load-miss", PERF_TYPE_HW_CACHE, 0x10004};
+[[maybe_unused]] PerfCounter Perf::SW_PAGE_FAULTS = {"sw-page-faults", PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS};
+[[maybe_unused]] PerfCounter Perf::SW_PAGE_FAULTS_MINOR = {"sw-page-faults-minor", PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS_MIN};
+[[maybe_unused]] PerfCounter Perf::SW_PAGE_FAULTS_MAJOR = {"sw-page-faults-major", PERF_TYPE_SOFTWARE, PERF_COUNT_SW_PAGE_FAULTS_MAJ};
+
 /**
  * Counter "LLC Reference"
  * Accesses to the LLC, in which the data is present(hit) or not present(miss)

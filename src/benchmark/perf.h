@@ -107,6 +107,12 @@ public:
     [[maybe_unused]] static PerfCounter SW_PREFETCH_ACCESS_T0;
     [[maybe_unused]] static PerfCounter SW_PREFETCH_ACCESS_T1_T2;
     [[maybe_unused]] static PerfCounter SW_PREFETCH_ACCESS_WRITE;
+    [[maybe_unused]] static PerfCounter DTLB_STORE_MISSES;
+    [[maybe_unused]] static PerfCounter DTLB_READ_MISSES;
+    [[maybe_unused]] static PerfCounter ITLB_LOAD_MISSES;
+    [[maybe_unused]] static PerfCounter SW_PAGE_FAULTS;
+    [[maybe_unused]] static PerfCounter SW_PAGE_FAULTS_MINOR;
+    [[maybe_unused]] static PerfCounter SW_PAGE_FAULTS_MAJOR;
 
     Perf() noexcept = default;
     ~Perf() noexcept = default;
