@@ -4,8 +4,12 @@
 #include <mx/synchronization/synchronization.h>
 #include <mx/system/thread.h>
 #include <mx/system/topology.h>
-#include <thread>
 #include <vector>
+
+#define SHENANGO
+#include <cc/thread.h>
+#include <runtime/sync.h>
+#include <cc/runtime.h>
 
 using namespace mx::tasking;
 
@@ -41,13 +45,11 @@ Scheduler::~Scheduler() noexcept
 void Scheduler::start_and_wait()
 {
     // Create threads for worker...
-    std::vector<std::thread> worker_threads(this->_core_set.size() +
+    std::vector<rt::Thread> worker_threads(this->_core_set.size() +
                                             static_cast<std::uint16_t>(config::memory_reclamation() != config::None));
     for (auto channel_id = 0U; channel_id < this->_core_set.size(); ++channel_id)
     {
-        worker_threads[channel_id] = std::thread([this, channel_id] { this->_worker[channel_id]->execute(); });
-
-        system::thread::pin(worker_threads[channel_id], this->_worker[channel_id]->core_id());
+        worker_threads[channel_id] = rt::Thread([this, channel_id] { this->_worker[channel_id]->execute(); });
     }
 
     // ... and epoch management (if enabled).
@@ -55,7 +57,7 @@ void Scheduler::start_and_wait()
     {
         // In case we enable memory reclamation: Use an additional thread.
         worker_threads[this->_core_set.size()] =
-            std::thread([this] { this->_epoch_manager.enter_epoch_periodically(); });
+            rt::Thread([this] { this->_epoch_manager.enter_epoch_periodically(); });
     }
 
     // Turning the flag on starts all worker threads to execute tasks.
@@ -66,7 +68,7 @@ void Scheduler::start_and_wait()
     // from somewhere in the application.
     for (auto &worker_thread : worker_threads)
     {
-        worker_thread.join();
+        worker_thread.Join();
     }
 
     if constexpr (config::memory_reclamation() != config::None)
