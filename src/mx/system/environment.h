@@ -24,6 +24,23 @@ public:
         return true;
     }
 
+    static uint64_t timestamp()
+    {
+        uint32_t lo, hi;
+        __asm__ __volatile__("xorl %%eax,%%eax\n\t" /* provide constant argument to cpuid to reduce variance */
+                             "cpuid\n\t"            /* synchronise, i.e. finish all preceeding instructions */
+                             :
+                             :
+                             : "%rax", "%rbx", "%rcx", "%rdx");
+        __asm__ __volatile__("rdtsc"
+                             : "=a"(lo), "=d"(hi)
+                             :
+                             : "memory" /* prevent reordering of asm statements */
+        );
+
+        return (uint64_t)hi << 32 | lo;
+    }
+
     static constexpr auto is_sse2()
     {
 #ifdef USE_SSE2
