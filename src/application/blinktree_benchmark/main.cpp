@@ -7,6 +7,9 @@
 #include <mx/util/core_set.h>
 #include <tuple>
 
+#define SHENANGO
+#include <cc/runtime.h>
+
 using namespace application::blinktree_benchmark;
 
 /**
@@ -33,21 +36,23 @@ int main(int count_arguments, char **arguments)
         std::cout << "[Warn] NUMA balancing may be enabled, set '/proc/sys/kernel/numa_balancing' to '0'" << std::endl;
     }
 
-    auto [benchmark, prefetch_distance, use_system_allocator] = create_benchmark(count_arguments, arguments);
-    if (benchmark == nullptr)
-    {
-        return 1;
-    }
+    rt::RuntimeInit("blinktree.cfg", [count_arguments, arguments] {
+        auto [benchmark, prefetch_distance, use_system_allocator] = create_benchmark(count_arguments, arguments);
+        if (benchmark == nullptr)
+        {
+            return 1;
+        }
 
-    mx::util::core_set cores{};
+        mx::util::core_set cores{};
 
-    while ((cores = benchmark->core_set()))
-    {
-        mx::tasking::runtime_guard _(use_system_allocator, cores, prefetch_distance);
-        benchmark->start();
-    }
+        while ((cores = benchmark->core_set()))
+        {
+            mx::tasking::runtime_guard _(use_system_allocator, cores, prefetch_distance);
+            benchmark->start();
+        }
 
-    delete benchmark;
+        delete benchmark;
+    });
 
     return 0;
 }
