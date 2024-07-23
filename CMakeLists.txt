@@ -7,27 +7,28 @@ FindSSE()
 
 # Set compile flags
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_C_COMPILER clang)
-set(CMAKE_CXX_COMPILER clang++)
+set(CMAKE_C_COMPILER /usr/local/bin/clang)
+set(CMAKE_CXX_COMPILER /usr/local/bin/clang++)
 #set(CMAKE_CXX_CLANG_TIDY "clang-tidy;--extra-arg-before=-std=c++17 --system-headers=0")
-set(CMAKE_CXX_FLAGS "-pedantic -Wall -Wextra -Werror \
+set(CMAKE_CXX_FLAGS "-pedantic -Wall -Wextra  \
  -Wno-invalid-offsetof -Wcast-align -Wcast-qual -Wctor-dtor-privacy -Wdisabled-optimization \
  -Wformat=2 -Winit-self -Wmissing-declarations -Wmissing-include-dirs -Woverloaded-virtual \
- -Wredundant-decls -Wshadow -Wsign-promo -Wstrict-overflow=5 -Wswitch-default -Wundef \
+ -Wredundant-decls -Wsign-promo -Wstrict-overflow=5 -Wswitch-default -Wundef  \
  -Wno-unused -Wold-style-cast -Wno-uninitialized")
 
 # Set compile flag for x86_64
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native")
+    #    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native -mtune=native")
 endif()
 
 # Set SSE flag if available
 IF(SSE4_2_FOUND)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2 -DUSE_SSE2")
+    #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse4.2 -DUSE_SSE2")
 ENDIF(SSE4_2_FOUND)
 
-set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g3")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -g -DNDEBUG -flto")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
+#set(CMAKE_CXX_FLAGS_RELEASE "-O3 -g -DNDEBUG -flto ")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g -fno-aligned-new -ffunction-sections -fno-strict-aliasing -m64 -mcmodel=large -MMD -MP -MT -lnuma -D_GLIBCXX_ATOMIC_BUILTINS_8 -fno-builtin-sin -fno-builtin-cos -fno-builtin-sinf -fno-builtin-cosf -D__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8 -D_GLIBCXX_NO_OBSOLETE_ISINF_ISNAN_DYNAMIC -D__FreeBSD__=12")
 set(CMAKE_BUILD_TYPE RELEASE)
 
 # Directories for output binaries and libraries
