@@ -8,7 +8,7 @@ public:
     /**
      * @return Number of maximal provided NUMA regions.
      */
-    static constexpr auto max_numa_nodes() { return 2U; }
+    static constexpr auto max_numa_nodes() { return 8U; }
 
     /**
      * @return Interval of each epoch, if memory reclamation is used.
