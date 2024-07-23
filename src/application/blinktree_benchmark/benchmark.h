@@ -99,5 +99,39 @@ private:
      * @return Name of the file to write profiling results to.
      */
     [[nodiscard]] std::string profile_file_name() const;
+
+    friend class StartMeasurementTask;
+    friend class StopMeasurementTask;
+};
+
+class StartMeasurementTask : public mx::tasking::TaskInterface
+{
+    private:
+        Benchmark &_benchmark;
+
+    public:
+        constexpr StartMeasurementTask(Benchmark& benchmark) : _benchmark(benchmark) {}
+        ~StartMeasurementTask() override = default;
+
+        mx::tasking::TaskResult execute(const std::uint16_t, const std::uint16_t) override
+        {
+            _benchmark._chronometer.start(static_cast<std::uint16_t>(static_cast<benchmark::phase>(_benchmark._workload)), _benchmark._current_iteration + 1, _benchmark._cores.current());
+            return mx::tasking::TaskResult::make_remove();
+        }
+};
+class StopMeasurementTask : public mx::tasking::TaskInterface
+{
+    private:
+        Benchmark &_benchmark;
+
+    public:
+        constexpr StopMeasurementTask(Benchmark &benchmark) : _benchmark(benchmark) {}
+        ~StopMeasurementTask() override = default;
+
+        mx::tasking::TaskResult execute(const std::uint16_t core_id, const std::uint16_t channel_id) override
+        {
+            _benchmark.requests_finished();
+            return mx::tasking::TaskResult::make_remove();
+        }
 };
 } // namespace application::blinktree_benchmark
