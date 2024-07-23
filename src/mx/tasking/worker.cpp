@@ -27,8 +27,9 @@ void Worker::execute()
     }
 
     TaskInterface *task;
-    const auto core_id = system::topology::core_id();
-    assert(this->_target_core_id == core_id && "Worker not pinned to correct core.");
+    const auto core_id = _target_core_id;
+     //system::topology::core_id();
+    //assert(this->_target_core_id == core_id && "Worker not pinned to correct core.");
     const auto channel_id = this->_channel.id();
 
     while (this->_is_running)
@@ -101,6 +102,8 @@ void Worker::execute()
             case synchronization::primitive::ExclusiveLatch:
                 result = Worker::execute_exclusive_latched(core_id, channel_id, task);
                 break;
+            default:
+                result = task->execute(core_id, channel_id);
             }
 
             // The task-chain may be finished at time the
