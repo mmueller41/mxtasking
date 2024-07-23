@@ -16,6 +16,7 @@
 #include <mx/util/core_set.h>
 #include <unordered_map>
 #include <vector>
+#include <iostream>
 
 namespace mx::memory::fixed {
 /**
@@ -45,17 +46,18 @@ class Chunk
 {
 public:
     Chunk() noexcept = default;
-    explicit Chunk(void *memory) noexcept : _memory(memory) {}
+    explicit Chunk(void *memory, bool is_allocated) noexcept : _memory(memory), _is_allocated(is_allocated) {}
     ~Chunk() noexcept = default;
 
     static constexpr auto size() { return 4096 * 4096; /* 16mb */ }
 
     explicit operator void *() const noexcept { return _memory; }
     explicit operator std::uintptr_t() const noexcept { return reinterpret_cast<std::uintptr_t>(_memory); }
-    explicit operator bool() const noexcept { return _memory != nullptr; }
+    explicit operator bool() const noexcept { return _memory != nullptr && _is_allocated; }
 
 private:
     void *_memory{nullptr};
+    bool _is_allocated{true};
 };
 
 /**
@@ -116,7 +118,7 @@ public:
      */
     Chunk allocate() noexcept
     {
-        const auto next_free_chunk = _next_free_chunk.fetch_add(1, std::memory_order_relaxed);
+        const auto next_free_chunk = _next_free_chunk.fetch_add(1, std::memory_order_relaxed); //todo: relax
         if (next_free_chunk < _free_chunk_buffer.size())
         {
             return _free_chunk_buffer[next_free_chunk];
@@ -175,10 +177,11 @@ private:
         }
 
         auto *heap_memory = GlobalHeap::allocate(_numa_node_id, Chunk::size() * _free_chunk_buffer.size());
+        assert(heap_memory != nullptr && "heap_memory is null");
         auto heap_memory_address = reinterpret_cast<std::uintptr_t>(heap_memory);
         for (auto i = 0U; i < _free_chunk_buffer.size(); ++i)
         {
-            _free_chunk_buffer[i] = Chunk(reinterpret_cast<void *>(heap_memory_address + (i * Chunk::size())));
+            _free_chunk_buffer[i] = Chunk(reinterpret_cast<void *>(heap_memory_address + (i * Chunk::size())), i==0);
         }
 
         _next_free_chunk.store(0U);
@@ -281,13 +284,13 @@ public:
     {
         for (auto node_id = std::uint8_t(0U); node_id < config::max_numa_nodes(); ++node_id)
         {
-            if (core_set.has_core_of_numa_node(node_id))
-            {
+            //if (core_set.has_core_of_numa_node(node_id))
+            //{
                 _processor_heaps[node_id] = ProcessorHeap{node_id};
-            }
+            //}
         }
 
-        for (const auto core_id : core_set)
+        for (unsigned core_id = 0; core_id < system::topology::count_cores(); core_id++)
         {
             const auto node_id = system::topology::node_id(core_id);
             _core_heaps[core_id] = CoreHeap<S>{&_processor_heaps[node_id]};
@@ -302,7 +305,10 @@ public:
      * @param core_id ID of the core.
      * @return Allocated memory object.
      */
-    [[nodiscard]] void *allocate(const std::uint16_t core_id) override { return _core_heaps[core_id].allocate(); }
+    [[nodiscard]] void *allocate(const std::uint16_t core_id) override { void *ptr = _core_heaps[core_id].allocate();
+        assert(ptr != nullptr && "allocate returned null");
+        return ptr;
+    }
 
     /**
      * Frees memory.
