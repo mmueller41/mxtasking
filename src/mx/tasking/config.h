@@ -12,7 +12,7 @@ public:
     };
 
     // Maximal number of supported cores.
-    static constexpr auto max_cores() { return 128U; }
+    static constexpr auto max_cores() { return 64U; }
 
     // Maximal size for a single task, will be used for task allocation.
     static constexpr auto task_size() { return 64U; }
