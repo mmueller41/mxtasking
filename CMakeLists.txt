@@ -28,7 +28,7 @@ ENDIF(SSE4_2_FOUND)
 
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g")
 #set(CMAKE_CXX_FLAGS_RELEASE "-O3 -g -DNDEBUG -flto ")
-set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g -fno-aligned-new -ffunction-sections -fno-strict-aliasing -m64 -mcmodel=large -MMD -MP -MT -lnuma -D_GLIBCXX_ATOMIC_BUILTINS_8 -fno-builtin-sin -fno-builtin-cos -fno-builtin-sinf -fno-builtin-cosf -D__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8 -D_GLIBCXX_NO_OBSOLETE_ISINF_ISNAN_DYNAMIC -D__FreeBSD__=12")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2 -g -fno-aligned-new -ffunction-sections -fno-strict-aliasing -m64 -mcmodel=large -MMD -MP -MT -lnuma -D_GLIBCXX_ATOMIC_BUILTINS_8 -fno-builtin-sin -fno-builtin-cos -fno-builtin-sinf -fno-builtin-cosf -D__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8 -D_GLIBCXX_NO_OBSOLETE_ISINF_ISNAN_DYNAMIC -D__FreeBSD__=12 -T /home/mml/caladan/base/base.ld -L/home/mml/caladan -L/home/mml/caladan/bindings/cc")
 set(CMAKE_BUILD_TYPE RELEASE)
 
 # Directories for output binaries and libraries
@@ -39,7 +39,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 find_library(GTEST gtest)
 
 # Include folders
-include_directories(src/ lib/)
+include_directories(src/ lib/ /home/mml/caladan/inc /home/mml/caladan/bindings)
 
 # Source files
 SET(MX_TASKING_SRC
@@ -71,7 +71,7 @@ add_executable(blinktree_benchmark
     src/application/blinktree_benchmark/main.cpp
     src/application/blinktree_benchmark/benchmark.cpp
 )
-target_link_libraries(blinktree_benchmark pthread numa atomic mxtasking mxbenchmarking)
+target_link_libraries(blinktree_benchmark pthread numa atomic mxtasking mxbenchmarking rt++ runtime net base)
 
 add_executable(hashjoin_benchmark
     src/application/hashjoin_benchmark/main.cpp
@@ -80,10 +80,10 @@ add_executable(hashjoin_benchmark
     src/application/hashjoin_benchmark/tpch_table_reader.cpp
     src/application/hashjoin_benchmark/notifier.cpp
 )
-target_link_libraries(hashjoin_benchmark pthread numa atomic mxtasking mxbenchmarking)
+target_link_libraries(hashjoin_benchmark pthread numa atomic mxtasking mxbenchmarking rt++ runtime net base)
 
 add_executable(hello_world src/application/hello_world/main.cpp)
-target_link_libraries(hello_world pthread numa atomic mxtasking mxbenchmarking)
+target_link_libraries(hello_world pthread numa atomic mxtasking mxbenchmarking rt++ runtime net base)
 
 # Add tests
 if (GTEST)
@@ -100,7 +100,7 @@ if (GTEST)
     )
 
     add_executable(mxtests test/test.cpp ${TESTS})
-    target_link_libraries(mxtests pthread numa atomic mxtasking mxbenchmarking gtest)
+    target_link_libraries(mxtests pthread numa atomic mxtasking mxbenchmarking gtest rt++ runtime net base)
 else()
     message("Library 'gtest' not found. Please install 'libgtest-dev' for unit tests.")
 endif()
