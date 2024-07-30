@@ -8,6 +8,7 @@
 #include <mx/system/topology.h>
 #include <mx/tasking/config.h>
 #include <ostream>
+#include <mx/util/bits.h>
 
 namespace mx::util {
 /**
@@ -90,6 +91,8 @@ public:
      * @return
      */
     static core_set build(std::uint16_t cores, Order order = Ascending);
+
+    static core_set build(std::uint64_t *core_mask, std::uint16_t count);
 
     bool operator==(const core_set &other) const noexcept
     {

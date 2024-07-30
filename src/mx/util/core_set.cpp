@@ -43,6 +43,21 @@ core_set core_set::build(std::uint16_t cores, const Order order)
     return core_set;
 }
 
+core_set core_set::build(std::uint64_t *core_mask, std::uint16_t count)
+{
+    core_set core_set;
+    for (int c = 0; c < count; ++count)
+    {
+        std::bitset<tasking::config::max_cores()> mask{core_mask[c]};
+        long core = 0;
+
+        while ((core = util::bit_scan_forward(mask.to_ulong())) != -1) {
+            mask.reset(core);
+            core_set.emplace_back(core);
+        }
+    }
+}
+
 namespace mx::util {
 std::ostream &operator<<(std::ostream &stream, const core_set &core_set)
 {
