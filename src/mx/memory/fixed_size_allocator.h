@@ -296,7 +296,7 @@ public:
             }
         }
 
-        for (const auto core_id : core_set)
+        for (auto core_id = 0; core_id < system::topology::count_cores(); ++core_id)
         {
             const auto node_id = system::topology::node_id(core_id);
             _core_heaps[core_id] = CoreHeap<S>{&_processor_heaps[node_id]};
