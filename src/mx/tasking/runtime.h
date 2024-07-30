@@ -73,7 +73,7 @@ public:
         {
             _task_allocator.reset(new (
                 memory::GlobalHeap::allocate_cache_line_aligned(sizeof(memory::fixed::Allocator<config::task_size()>)))
-                                      memory::fixed::Allocator<config::task_size()>(core_set));
+                                      memory::fixed::Allocator<config::task_size()>(system::Environment::cores()));
         }
 
         // Create a new scheduler.
