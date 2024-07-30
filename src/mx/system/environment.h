@@ -6,6 +6,9 @@
 #include <topo_session/node.h>
 #include <cstdint>
 
+namespace mx::util {
+    class core_set;
+}
 namespace mx::system {
 /**
  * Encapsulates functionality of the (Linux) system.
@@ -18,6 +21,7 @@ private:
      * @details The application's environment grants access to core services of EalánOS, such as thread creation and memory allocation.
      */
     Libc::Env *_env;
+    util::core_set *_coreset;
 
 public:
     Environment() = default;
@@ -35,6 +39,17 @@ public:
      * @param env pointer to libc enviroment object
      */
     void setenv(Libc::Env *env) { _env = env; }
+
+    /**
+     * @brief Set core set to be used by memory allocators and scheduler
+     * @param core_set the core_set to use
+    */
+    static void set_cores(util::core_set *core_set);
+
+    /**
+     * @brief returns the core set representing the physical environment MxTasking is running in
+    */
+    static util::core_set &cores();
 
     /**
      * @brief Get the instance object
@@ -90,7 +105,7 @@ public:
      * @return Topology::Numa_region const& the corresponding node object
      */
     static Topology::Numa_region node(std::uint8_t numa_id) { return topo().node_at_id(numa_id); }
-    
+
     /**
      * @return True, if NUMA balancing is enabled by the system.
      */
