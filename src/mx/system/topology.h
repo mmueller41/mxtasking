@@ -39,7 +39,7 @@ public:
     /**
      * @return The greatest NUMA region identifier.
      */
-    static std::uint8_t max_node_id() { return 7; /*std::uint8_t(Environment::topo().node_count()-1);*/ }
+    static std::uint8_t max_node_id() { return 3; /*std::uint8_t(Environment::topo().node_count()-1);*/ }
 
     /**
      * @return Number of available cores.
