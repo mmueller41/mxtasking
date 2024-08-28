@@ -38,6 +38,8 @@ public:
 
     inline void *local_allocate(const std::uint8_t numa_node_id, const std::size_t size)
     {
+        if (heaps[numa_node_id] == nullptr)
+            Genode::error("No local heap for NUMA node ", numa_node_id);
         return heaps[numa_node_id]->alloc(size);
     }
 
@@ -95,6 +97,8 @@ public:
     {
         void *ptr = nullptr;
         posix_memalign(&ptr, 64, alignment_helper::next_multiple(size, 64UL));
+        if (!ptr)
+            Genode::error("posix_memalign returned NULL");
         return ptr;
     }
 
