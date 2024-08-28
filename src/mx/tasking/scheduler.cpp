@@ -11,6 +11,8 @@
 #include <base/affinity.h>
 #include <base/thread.h>
 #include <nova/syscalls.h>
+#include <cstdlib>
+#include <cmath>
 
 using namespace mx::tasking;
 
@@ -18,25 +20,27 @@ std::uint64_t *volatile mx::tasking::runtime::_signal_page;
 
 Scheduler::Scheduler(const mx::util::core_set &core_set, const std::uint16_t prefetch_distance,
                      memory::dynamic::Allocator &resource_allocator, std::uint64_t * volatile signal_page) noexcept
-    : _core_set(core_set), _count_channels(core_set.size()), _worker({}), _channel_numa_node_map({0U}),
+    : _core_set(core_set), _count_channels(core_set.size()), _vacant_channels(_count_channels), _worker({}), _channel_numa_node_map({0U}),
       _epoch_manager(core_set.size(), resource_allocator, _is_running), _statistic(_count_channels)
 {
     this->_worker.fill(nullptr);
     this->_channel_numa_node_map.fill(0U);
+    Genode::log("Initializing scheduler");
     for (auto worker_id = 0U; worker_id < mx::system::Environment::topo().global_affinity_space().total(); ++worker_id)
     {
-        const auto core_id = this->_core_set[worker_id];
+        const auto core_id = worker_id;
         this->_channel_numa_node_map[worker_id] = system::topology::node_id(core_id);
+        Genode::log("Creating worker ", worker_id, " at node ", this->_channel_numa_node_map[worker_id]);
         auto ptr = memory::GlobalHeap::allocate(this->_channel_numa_node_map[worker_id], sizeof(Worker));
         this->_worker[worker_id] =
             new (ptr)
-                Worker(worker_id, core_id, this->_channel_numa_node_map[worker_id], signal_page, this->_is_running,
+                Worker(worker_id, core_id, this->_channel_numa_node_map[worker_id], signal_page, this->_is_running, _vacant_channels, _stealing_limit, _remainder_channel_count,
                        prefetch_distance, this->_epoch_manager[worker_id], this->_epoch_manager.global_epoch(),
                        this->_statistic);
         ptr = memory::GlobalHeap::allocate(this->_channel_numa_node_map[worker_id], sizeof(Channel));
         this->_channels[worker_id] =
             new (ptr) Channel(worker_id, this->_channel_numa_node_map[worker_id], prefetch_distance);
-        this->_worker[worker_id]->assign(this->_channels[worker_id]);
+        _vacant_channels.push_back(_channels[worker_id]);
         Genode::log("Channel ", worker_id, " created at ", _channels[worker_id]);
     }
 }
@@ -88,11 +92,26 @@ void Scheduler::start_and_wait()
     Genode::log("Worker started in ", (end - start), " cycles");
 
     Genode::log("Creating foreman thread on CPU ", start_cpu);
+    
+    Channel *qf = _vacant_channels.pop_front();
+    _worker[0]->assign(qf);
 
     Libc::pthread_create_from_session(&worker_threads[0], Worker::entry, _worker[0], 4 * 4096, "foreman",
                                       &mx::system::Environment::envp()->cpu(), space.location_of_index(0) );
 
+    /* Always assign the first channel to the foreman, so that it is guaranteed
+    that channel 0 is always processed by worker 0 and, thus, always on the same CPU core.
+    This is very useful for benchmarks relying on the TSC. Furthermore, this channel will always be processed. */
+
     Genode::log("Created foreman thread");
+
+    Genode::log("Allocating ", _core_set.size(), " initial workers.");
+
+    Nova::mword_t allocation = 0;
+    Nova::core_allocation(allocation, false);
+    Genode::log("Initial cores ", allocation);
+
+    this->allocate_cores(_core_set.size()-1);
 
     // ... and epoch management (if enabled).
     if constexpr (config::memory_reclamation() != config::None)
@@ -246,4 +265,8 @@ void Scheduler::profile(const std::string &output_file)
         Genode::log("Profiling channel ", i, " at ", this->_channels[i]);
         this->_profiler.profile(this->_is_running, *(this->_channels[i]));
     }
+}
+
+Channel* Scheduler::steal_for(Worker *thief)
+{
 }

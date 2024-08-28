@@ -17,6 +17,7 @@
 #include <mx/util/core_set.h>
 #include <mx/util/random.h>
 #include <string>
+#include <cmath>
 
 namespace mx::tasking {
 /**
@@ -55,10 +56,49 @@ public:
     void interrupt() noexcept
     {
         _is_running = false;
-        this->_profiler.stop();
+        //Genode::log("Stopping runtime");
+        Genode::log("Waiting for ", _active_worker_count.load(), " workers to finish.");
+        while (_active_worker_count > 1)
+            system::builtin::pause();
+        Nova::mword_t pcpu = 0;
+        Nova::cpu_id(pcpu);
+
+        Worker *me = _worker_at_core[pcpu];
+
+        /* We assume that the runtime is always stopped by the foreman.
+         * So we should check whether this is truly the case here.
+         */
+        assert(me->current_channel()->id() == 0 && "Channel is not 0.");
+        assert(me->id() == 0 && "Stop called by worker.");
+
+        me->yield_channels(config::max_cores(), _channels[0]);
+
+        //Genode::log("Got ", _vacant_channels.size(), " vacant channels.");
+        // this->_profiler.stop();
     }
 
-    void resume() noexcept { _is_running = true;
+    void resume() noexcept { 
+        Nova::mword_t allocation = 0;
+        Nova::core_allocation(allocation, false);
+        //Genode::log("Allocation before resume ", allocation);
+
+        allocate_cores(_core_set.size()-1);
+        _is_running = true;
+    }
+
+    [[nodiscard]] inline Worker *my_self() noexcept { 
+        Nova::mword_t pcpu = 0;
+        Nova::cpu_id(pcpu);
+
+        return _worker_at_core[pcpu];
+    }
+
+    [[nodiscard]] inline std::uint16_t active_workers() const noexcept { return _active_worker_count; }
+
+    Channel *steal_for(Worker *thief);
+
+    [[nodiscard]] inline void set_stealing_limit(std::uint16_t workers) {
+        _stealing_limit = std::ceil(static_cast<float>(_vacant_channels.size()) / static_cast<float>(workers));
     }
 
     /**
@@ -99,6 +139,25 @@ public:
     void predict_usage(const std::uint16_t channel_id, const resource::hint::expected_access_frequency usage) noexcept
     {
         _channels[channel_id]->predict_usage(usage);
+        /*if (usage == resource::hint::expected_access_frequency::excessive) {
+            Worker *owner = _owner_of_channel[channel_id];
+            
+            if (owner) {
+                owner->prohibit_stealing();
+                //Genode::log("Worker ", owner->core_id(), " is going to have excessive load.");
+                _overloaded_workers.push_back(owner);
+                Nova::mword_t allocation;
+                std::uint16_t channels = owner->count_channels();
+
+                std::uint16_t cores_needed = (channels > 1) ? channels : 1;
+                Nova::alloc_cores(cores_needed + _vacant_channel_count.load(), allocation);
+            }
+            else
+            {
+                Nova::mword_t allocation;
+                Nova::alloc_cores(_vacant_channel_count, allocation);
+            }
+        }*/
     }
 
     /**
@@ -127,6 +186,15 @@ public:
      * Resets the statistics.
      */
     void reset() noexcept;
+
+    /**
+     * Register a worker in the core to worker map
+    */
+    void register_worker(Worker *worker) { _worker_at_core[worker->phys_core_id()] = worker;
+        _active_worker_count.fetch_add(1);
+    }
+
+    void deregister_worker(Worker *worker) { _active_worker_count.fetch_sub(1); }
 
     /**
      * Aggregates the counter for all cores.
@@ -164,6 +232,9 @@ public:
         }
     }
 
+    inline void add_vacant_channel(Channel *channel) { _vacant_channels.push_back(channel);
+    }
+
     /**
      * Starts profiling of idle times and specifies the results file.
      * @param output_file File to write idle times after stopping MxTasking.
@@ -174,6 +245,17 @@ public:
 
     bool operator!=(const util::core_set &cores) const noexcept { return _core_set != cores; }
 
+    inline void allocate_cores(std :: uint16_t cores) 
+    { 
+        Nova::mword_t allocation = 0;
+        Nova::mword_t remainder = 0;
+        Nova::alloc_cores(cores, allocation, remainder);
+        std::bitset<config::max_cores()> allocated(allocation);
+        _remainder_channel_count.store(remainder);
+
+        //Genode::log("Allocated ", allocation, " with ", allocated.count(), " workers and ", remainder, " excess queues.");
+    }
+
 private:
     // Cores to run the worker threads on.
     const util::core_set _core_set;
@@ -181,14 +263,23 @@ private:
     // Number of all channels.
     std::uint16_t _count_channels;
 
+    alignas(64) std::atomic<bool> _loot_available{true};
+
     // Flag for the worker threads. If false, the worker threads will stop.
     // This is atomic for hardware that does not guarantee atomic reads/writes of booleans.
     alignas(64) util::maybe_atomic<bool> _is_running{false};
 
+    alignas(64) std::atomic<std::uint16_t> _active_worker_count{0};
+
     // All initialized workers.
     alignas(64) std::array<Worker *, config::max_cores()> _worker{nullptr};
+    alignas(64) std::array<Worker *, config::max_cores()> _worker_at_core{nullptr};
 
     alignas(64) std::array<Channel *, config::max_cores()> _channels{nullptr};
+
+    alignas(64) util::BoundMPMCQueue<Channel *> _vacant_channels{config::max_cores()};
+    alignas(64) std::atomic<std::int32_t> _remainder_channel_count{0};
+    alignas(64) util::maybe_atomic<std::uint16_t> _stealing_limit{0};
 
     // Map of channel id to NUMA region id.
     alignas(64) std::array<std::uint8_t, config::max_cores()> _channel_numa_node_map{0U};

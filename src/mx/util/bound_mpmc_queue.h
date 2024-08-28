@@ -7,6 +7,7 @@
 #include <cstring>
 #include <mx/memory/global_heap.h>
 #include <mx/system/builtin.h>
+#include <mx/synchronization/spinlock.h>
 
 namespace mx::util {
 /**
@@ -50,6 +51,7 @@ public:
         {
             system::builtin::pause();
         }
+        _length.fetch_add(1);
     }
 
     /**
@@ -64,6 +66,7 @@ public:
         {
             system::builtin::pause();
         }
+        _length.fetch_sub(1);
         return item;
     }
 
@@ -76,8 +79,9 @@ public:
     T pop_front_or(const T &default_value) noexcept
     {
         T item;
-        if (try_pop_front(item))
+        if ( try_pop_front(item))
         {
+            _length.fetch_sub(1);
             return item;
         }
         else
@@ -158,6 +162,10 @@ public:
         return true;
     }
 
+    std::uint32_t size() {
+        return _length;
+    }
+
 private:
     // Capacity of the queue.
     const std::uint32_t _capacity;
@@ -165,10 +173,14 @@ private:
     // Array of status flags and data slots.
     std::pair<std::atomic_uint64_t, T> *_storage;
 
+    std::atomic<std::uint32_t> _length{0};
+
     // Index of the head.
     alignas(64) std::atomic_uint64_t _head{0U};
 
     // Index of the tail.
     alignas(64) std::atomic_uint64_t _tail{0U};
+
+    alignas(64) mx::synchronization::Spinlock _lock{};
 };
 } // namespace mx::util

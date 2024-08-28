@@ -24,7 +24,7 @@ class alignas(64) Worker
 {
 public:
     Worker(std::uint16_t id, std::uint16_t target_core_id, std::uint16_t target_numa_node_id, std::uint64_t* volatile tukija_sig,
-           const util::maybe_atomic<bool> &is_running, std::uint16_t prefetch_distance,
+           const util::maybe_atomic<bool> &is_running, util::BoundMPMCQueue<Channel *> &v, util::maybe_atomic<std::uint16_t> &s, std::atomic<std::int32_t> &e, std::uint16_t prefetch_distance,
            memory::reclamation::LocalEpoch &local_epoch, const std::atomic<memory::reclamation::epoch_t> &global_epoch,
            profiling::Statistic &statistic) noexcept;
 
@@ -55,18 +55,77 @@ public:
         Genode::log("Woke core cmap = ", alloc);*/
     }
 
-    bool sleeping() { return _is_sleeping; }
+    bool has_loot() {
+        _channel_lock.lock();
+        bool wealthy = _count_channels > 1 || _is_sleeping;
+        _channel_lock.unlock();
 
-    /**
-     * Steal a channel from another worker
-    */
-    bool steal();
+        return wealthy;
+    }
+
+    [[nodiscard]] std::uint16_t number_of_channels() { return _count_channels; }
+
+
+    inline bool steal(bool init=true)
+    {
+        if (!_is_running) {
+            return false;
+        }
+
+        bool got_loot = false;
+        /* First steal up to individual stealing limit */
+        if (init) {
+            while (individual_stealing_limit() > 0)
+            {
+                Channel *loot = _vacant_channels.pop_front_or(nullptr);
+                if (loot) {
+                    this->assign(loot);
+                    //Genode::log("Worker ", _id, ": Stole channel ", loot->id());
+                    got_loot |= true;
+                } else /* no vacant queues anymore, so stop stealing */
+                    break;
+            }
+        } else if (_excess_queues.load(std::memory_order_relaxed) <= 0) {
+            Genode::Trace::Timestamp deq_start = Genode::Trace::timestamp();
+            Channel *loot = _vacant_channels.pop_front_or(nullptr);
+            Genode::Trace::Timestamp deq_stop = Genode::Trace::timestamp();
+            _mean_dequeue_cost += deq_stop - deq_start;
+            dequeues++;
+            if (loot)
+            {
+                loot->phase(priority::normal);
+                Genode::Trace::Timestamp enq_start = Genode::Trace::timestamp();
+                this->assign(loot);
+                Genode::Trace::Timestamp enq_stop = Genode::Trace::timestamp();
+                _mean_enqueue_cost += enq_stop - enq_start;
+                enqueues++;
+
+                got_loot |= true;
+                if (_vacant_channels.size() == 0)
+                    _excess_queues.store(1);
+                // Genode::log("Worker ", _id, " Took remaining queue ", loot->id(), " with ", _vacant_channels.size(),
+                // " excess queues");
+            }
+        }
+
+        return got_loot;
+    }
+
+    bool yield_signaled() { return __atomic_load_n(&_my_page->yield_flag, __ATOMIC_SEQ_CST) == 1; }
+
+    std::uint16_t stealing_limit() {
+        return static_cast<std::uint16_t>(_my_page->limit);
+    }
+
+    std::uint16_t remaining_queues() { return static_cast<std::uint16_t>(_my_page->remainder); }
 
     /**
      * Assign a channel to this worker
      * This method is called by the scheduler to assign each worker an initial channel upon start. That's because initially none of the workers has any channel assigned yet. If it would try to steal one from another worker upon initialization it would not find a channel to begin with. Since this would apply for all channels the application would just stall forever, never finding a channel to steal.
     */
-    void assign(Channel *channel) { _channels.push_back(channel); }
+    void assign(Channel *channel) { _channels.push_back(channel);
+        _count_channels++;
+    }
 
     /**
      * @return Id of the logical core this worker runs on.
@@ -78,7 +137,42 @@ public:
 
     [[nodiscard]] std::uint16_t numa_id() const noexcept { return _target_numa_node_id; }
 
+    /**
+     * @return Id of the physical core this worker runs on.
+     */
+    [[nodiscard]] std::uint16_t phys_core_id() const noexcept { return _phys_core_id; }
+
+    /**
+     * @return Id of this worker
+    */
+    [[nodiscard]] std::uint16_t id() const noexcept { return _id; }
+
+    /**
+     * @return the number of channels this worker currently owns.
+    */
+    [[nodiscard]] std::uint16_t count_channels() { return _count_channels; }
+
+    /**
+     * 
+    */
+    Channel *current_channel() { return current; }
+
+    /**
+     * Yields a number of channels except the channel given
+     * @param num, the number of channels to yield
+     * @param channel, the channel to keep
+    */
+    void yield_channels(std::uint16_t num, Channel *except);
+
 private:
+
+    struct InfoPage {
+        volatile std::uint16_t yield_flag;
+        volatile std::uint16_t limit;
+        volatile std::uint16_t remainder;
+        std::uint16_t padding;
+        unsigned long pad[7];
+    };
     // Id of the logical core.
     const std::uint16_t _target_core_id;
 
@@ -90,6 +184,9 @@ private:
     std::uint16_t _phys_core_id{0};
 
     std::uint16_t _id{0};
+
+    mx::synchronization::Spinlock _channel_lock{};
+
     // std::int32_t _channel_size{0U};
 
     // Stack for persisting tasks in optimistic execution. Optimistically
@@ -99,7 +196,21 @@ private:
     // Channel where tasks are stored for execution.
     alignas(64) util::BoundMPMCQueue<Channel *> _channels{config::max_cores()};
 
+    alignas(64) struct InfoPage volatile *_my_page{nullptr};
+
     alignas(64) Channel *current{nullptr};
+
+    /**
+     * Profiling data structures
+    */
+    alignas(64) unsigned long _thefts{0};
+    alignas(64) Genode::Trace::Timestamp _stealing_cost{0};
+    alignas(64) Genode::Trace::Timestamp _max_cost{0};
+    alignas(64) Genode::Trace::Timestamp _min_cost{0};
+    alignas(64) Genode::Trace::Timestamp _mean_enqueue_cost{0};
+    alignas(64) Genode::Trace::Timestamp _mean_dequeue_cost{0};
+    alignas(64) unsigned long enqueues{1};
+    alignas(64) unsigned long dequeues{1};
 
     // Local epoch of this worker.
     memory::reclamation::LocalEpoch &_local_epoch;
@@ -113,13 +224,25 @@ private:
     // Flag for "running" state of MxTasking.
     const util::maybe_atomic<bool> &_is_running;
 
+    // Reference to queue of vacant channels
+    util::BoundMPMCQueue<Channel *> &_vacant_channels;
+
+    // Limit for stealing
+    const util::maybe_atomic<std::uint16_t> &_stealing_limit;
+
+    // Global number of excess queues
+    alignas(64) std::atomic<std::int32_t> &_excess_queues;
+
     // Communication channel to Tukija
-    std::uint64_t *volatile _tukija_signal;
+    struct InfoPage *volatile _tukija_signal;
+
+    // Number of channels currently owned by this worker
+    std::atomic<std::uint16_t> _count_channels{0};
 
     // Flag for "sleeping" state of this worker
     util::maybe_atomic<bool> _is_sleeping{false};
 
-    void sleep() { //_is_sleeping = true;
+    void sleep() { _is_sleeping = true;
         Nova::yield();
     }
 
@@ -127,6 +250,9 @@ private:
         Nova::yield(false);
     }
 
+    inline std::int32_t individual_stealing_limit() { std::int32_t limit = static_cast<std::int32_t>(stealing_limit()) - static_cast<std::int32_t>(_count_channels);
+        return limit;
+    }
 
     /**
      * Analyzes the given task and chooses the execution method regarding synchronization.
@@ -186,5 +312,95 @@ private:
      */
     TaskResult execute_optimistic_read(std::uint16_t core_id, std::uint16_t channel_id,
                                        resource::ResourceInterface *resource, TaskInterface *task);
+
+    inline void wait_for_hooter()
+    {
+        while (this->_is_running == false)
+        {
+            system::builtin::pause();
+        }
+    }
+
+    inline void handle_yield()
+    {
+        if (yield_signaled()) {
+            //Genode::log("Got yield signal ", _phys_core_id);
+            yield_channels(_count_channels, nullptr);
+            _excess_queues.fetch_sub(1);
+            
+            deregister();
+            yield();
+            //Genode::log("Worker on CPU ", _phys_core_id, " returned.");
+            registrate();
+            wait_for_hooter();
+            _thefts = 0;
+            _stealing_cost = 0;
+            _max_cost = 0;
+            _min_cost = 0;
+            _mean_enqueue_cost = 0;
+            _mean_dequeue_cost = 0;
+            enqueues = 1;
+            dequeues = 1;
+            handle_resume();
+        }
+    }
+
+    inline void handle_stop()
+    {
+        if (!_is_running) {
+            std::uint16_t expect = 0;
+            bool shall_yield = !__atomic_compare_exchange_n(&_my_page->yield_flag, &expect, 2, false, __ATOMIC_SEQ_CST, __ATOMIC_RELAXED);
+            if (shall_yield) {
+                handle_yield();
+                return;
+            }
+            Genode::log("Worker ", _id, ": thefts=", _thefts, " cost_total=", _stealing_cost, "avg cost_per_theft=", _stealing_cost/_thefts, " min cost/theft=", _min_cost, " max cost/theft=", _max_cost, " avg deq=", _mean_dequeue_cost, " avg enq=", _mean_enqueue_cost/enqueues, " #deqs=", dequeues, " #enqs=", enqueues);
+            //  Genode::log("Worker ", _id, " woke up again");
+            yield_channels(_count_channels, nullptr);
+            deregister();
+            sleep();
+
+            expect = 2;
+            shall_yield = !__atomic_compare_exchange_n(&_my_page->yield_flag, &expect, 0, false, __ATOMIC_SEQ_CST, __ATOMIC_RELAXED);
+            registrate();
+            
+            if (shall_yield) {
+                handle_yield();
+                return;
+            }
+
+            wait_for_hooter();
+            _thefts = 0;
+            _stealing_cost = 0;
+            _max_cost = 0;
+            _min_cost = 0;
+            _mean_enqueue_cost = 0;
+            _mean_dequeue_cost = 0;
+            enqueues = 1;
+            dequeues = 1;
+            handle_resume();
+        }
+    }
+    
+    inline void handle_resume()
+    {
+        if (!current) {
+            unsigned int loops = 0;
+            while (!steal() )
+            {
+                loops++;
+                handle_yield();
+                handle_stop();
+            }
+            // Genode::log("Worker ", _id, " stole ", static_cast<std::uint32_t>(_count_channels), " channels.");
+            if (_excess_queues.fetch_sub(1) <= 1)
+                ;
+            //Genode::log("Entering stealing phase 2");
+            current = _channels.pop_front_or(nullptr);
+        }
+    }
+
+    void registrate();
+    void deregister();
 };
 } // namespace mx::tasking

@@ -5,6 +5,8 @@
 #include <cassert>
 #include <mx/system/builtin.h>
 #include <mx/system/environment.h>
+#include <mx/tasking/scheduler.h>
+#include <mx/tasking/runtime.h>
 #include <mx/system/topology.h>
 #include <mx/util/random.h>
 #include <base/thread.h>
@@ -14,16 +16,44 @@
 #include <trace/timestamp.h>
 #include <nova/syscalls.h>
 
+
 using namespace mx::tasking;
 
 Worker::Worker(const std::uint16_t id, const std::uint16_t target_core_id, const std::uint16_t target_numa_node_id, std::uint64_t* volatile tukija_sig,
-               const util::maybe_atomic<bool> &is_running, const std::uint16_t prefetch_distance,
+               const util::maybe_atomic<bool> &is_running, util::BoundMPMCQueue<Channel *> &v, util::maybe_atomic<std::uint16_t> &s, std::atomic<std::int32_t> &e, const std::uint16_t prefetch_distance,
                memory::reclamation::LocalEpoch &local_epoch,
                const std::atomic<memory::reclamation::epoch_t> &global_epoch, profiling::Statistic &statistic) noexcept
-    : _target_core_id(target_core_id), _target_numa_node_id(target_numa_node_id), _tukija_signal(tukija_sig), _prefetch_distance(prefetch_distance),
+    : _target_core_id(target_core_id), _target_numa_node_id(target_numa_node_id), _tukija_signal(reinterpret_cast<struct InfoPage*>(tukija_sig)), _prefetch_distance(prefetch_distance),
       _id(id), _local_epoch(local_epoch), _global_epoch(global_epoch),
-      _statistic(statistic), _is_running(is_running)
+      _statistic(statistic), _is_running(is_running), _vacant_channels(v), _stealing_limit(s), _excess_queues(e)
 {
+}
+
+void Worker::yield_channels(std::uint16_t num, Channel *except) { 
+    Channel *chan;
+    do {
+        chan = _channels.pop_front_or(nullptr);
+        if (chan && chan != except) {
+            //Genode::log("Worker ", _id, " returns channel ", chan->id());
+            _vacant_channels.push_back(chan);
+            _count_channels--;
+        }
+        num--;
+    } while (num && chan);
+    if (current && current != except) {
+        _vacant_channels.push_back(current);
+        //Genode::log("Worker ", _id, " returns channel ", current->id());
+        
+        /* If yield_channels is called by the foreman, it is likely that this happenend due to a previous call to runtime::stop. In this case the foreman will release all channels but channel 0. However, it is possible that the foreman called runtime::stop while processing another channel than 0 which after this call will not belong to it anymore. Thus, to avoid having the foreman process a channel that has been yielded and risking nasty race conditions, the foreman takes the last remaining channel (0). */
+        if (_id == 0 && current->id() != 0) { 
+            current = _channels.pop_front_or(nullptr);
+            assert(current != nullptr);
+        }
+        else
+            current = nullptr;
+    }
+    _count_channels--;
+    
 }
 
 void Worker::execute()
@@ -34,42 +64,86 @@ void Worker::execute()
 
         self->pin(loc);
     }*/
-    if (_id != 0)
-        sleep();
+    Nova::mword_t pcpu = 0;
+    Nova::cpu_id(pcpu);
 
-    while (this->_is_running == false)
-    {
-        system::builtin::pause();
+    _phys_core_id = pcpu;
+    _my_page = &_tukija_signal[phys_core_id()];
+
+    if (_id != 0) {
+        sleep();
+    } else if (_id == 0) /* foreman */ {
+        current = _channels.pop_front();
     }
+    _is_sleeping = false;
+
+    wait_for_hooter();
+
+    runtime::scheduler().register_worker(this);
+    //Genode::log("Worker ", _id, "(", _phys_core_id, ")",
+    //            " woke up. is_runnin = ", (_is_running ? "true" : "false"));
 
 
     TaskInterface *task;
     const auto core_id = system::topology::core_id();
     //assert(this->_target_core_id == core_id && "Worker not pinned to correct core.");
-    Nova::mword_t pcpu = 0;
-    Nova::cpu_id(pcpu);
 
-    _phys_core_id = pcpu;
+    auto phase = priority::normal;
 
-    //Genode::log("Worker ", _channel.id(), "(", _phys_core_id ,")", " woke up");
-    std::uint64_t *volatile tukija_signal = &_tukija_signal[_phys_core_id];
-
-    this->current = this->_channels.pop_front();
-    auto channel_id = current->id();
-
-    while (this->_is_running)
+    while (true)
     {
+        handle_resume();
+        
+        while (!current) {
+            //Genode::log("Worker ",_id,": No queues for me.");
+            
+            std::uint16_t expect = 0;
+            bool shall_yield = !__atomic_compare_exchange_n(&_my_page->yield_flag, &expect, 2, false, __ATOMIC_SEQ_CST, __ATOMIC_RELAXED);
+            if (shall_yield) {
+                handle_yield();
+                return;
+            }
+            deregister();
+            sleep();
+            handle_resume();
+        }
+
+        //Genode::log("Worker ", _id, " is now processing channel ", this->current->id());
         if constexpr (config::memory_reclamation() == config::UpdateEpochPeriodically)
         {
             this->_local_epoch.enter(this->_global_epoch);
         }
 
-        this->current->fill();
+        auto channel_id = current->id();
 
-        if (this->current->size() == 0) {
-            //Genode::log("Channel ", _channel.id(), " empty. Going to sleep");
-            sleep();
-            //Genode::log("Worker on CPU ", _phys_core_id, " woke up at ", Genode::Trace::timestamp());
+        if (current->phase() != phase) {
+            if (phase == priority::normal)
+                phase = priority::low;
+            else /* phase == priority::low */ {
+                phase = priority::normal;
+            }
+            //Genode::log("Switched phase to ", (phase == priority::normal)? "normal" : "low");
+        }
+
+        if (phase == priority::normal)
+            current->fill<priority::normal>();
+        else {
+            current->fill<priority::low>();
+        }
+
+        if (phase == priority::normal && current->empty()) {
+            Genode::Trace::Timestamp thefts_start = Genode::Trace::timestamp();
+            steal(false);
+            Genode::Trace::Timestamp theft_stop = Genode::Trace::timestamp();
+            Genode::Trace::Timestamp cost = theft_stop - thefts_start;
+            _stealing_cost += cost;
+            if (cost > _max_cost)
+                _max_cost = cost;
+            if ((_min_cost == 0) || (_min_cost > cost))
+                _min_cost = cost;
+            _thefts++;
+            //_channels.push_back(current);
+            // current = _channels.pop_front_or(nullptr);
         }
 
         if constexpr (config::task_statistics())
@@ -147,15 +221,24 @@ void Worker::execute()
             {
                 runtime::delete_task(core_id, task);
             }
-
-            if (__atomic_load_n(tukija_signal, __ATOMIC_SEQ_CST)) {
-                Genode::log("Got yield signal ", _phys_core_id);
-                yield();
-            }
+            handle_yield();
         }
+
+        handle_yield();
+        handle_stop();
+
+        current->switch_phase();
+        _channels.push_back(current);
+        current = _channels.pop_front_or(nullptr);
     }
-    //Genode::log("Worker on CPU ", _phys_core_id, " going to stop");
-    sleep();
+}
+
+void Worker::registrate() {
+    runtime::scheduler().register_worker(this);
+}
+
+void Worker::deregister() {
+    runtime::scheduler().deregister_worker(this);
 }
 
 TaskResult Worker::execute_exclusive_latched(const std::uint16_t core_id, const std::uint16_t channel_id,

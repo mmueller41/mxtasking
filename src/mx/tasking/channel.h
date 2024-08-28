@@ -145,6 +145,12 @@ public:
 
     std::uint32_t decrement() { return --_size; }
 
+    tasking::priority phase() { return _phase; }
+    void switch_phase() { _phase = _phase == priority::normal ? priority::low : priority::normal; }
+    void phase(tasking::priority phase) { _phase = phase; }
+
+    std::uint16_t id() { return _id; }
+
 private:
     // Backend queues for multiple produces in different NUMA regions and different priorities,
     alignas(64)
@@ -167,6 +173,9 @@ private:
 
     // Holder of resource predictions of this channel.
     alignas(64) ChannelOccupancy _occupancy{};
+
+    // Is the channel currently processed by a worker
+    alignas(64) std::atomic<tasking::priority> _phase{priority::normal};
 
     /**
      * Fills the task buffer with tasks scheduled with a given priority.

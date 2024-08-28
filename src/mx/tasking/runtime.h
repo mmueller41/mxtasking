@@ -39,7 +39,8 @@ public:
             _signal_page = static_cast<std::uint64_t *>(mx::system::Environment::rm().attach(ds));
             std::memset(_signal_page, 0, 4096);
 
-            Nova::mxinit(0, 0, reinterpret_cast<Nova::mword_t>(_signal_page));
+            Nova::mxinit(mx::system::Environment::topo().global_affinity_space().total()-1, 0, reinterpret_cast<Nova::mword_t>(_signal_page));
+            Genode::log("Initialized MxVisor interface");
         }
         // Are we ready to re-initialize the scheduler?
         if (_scheduler != nullptr && _scheduler->is_running())
@@ -50,6 +51,7 @@ public:
         // Create a new resource allocator.
         if (_resource_allocator == nullptr)
         {
+            Genode::log("Creating resource allocator");
             _resource_allocator.reset(new (memory::GlobalHeap::allocate_cache_line_aligned(
                 sizeof(memory::dynamic::Allocator))) memory::dynamic::Allocator());
         }
@@ -71,6 +73,7 @@ public:
         }
         else
         {
+            Genode::log("Creating task allocator");
             _task_allocator.reset(new (
                 memory::GlobalHeap::allocate_cache_line_aligned(sizeof(memory::fixed::Allocator<config::task_size()>)))
                                       memory::fixed::Allocator<config::task_size()>(system::Environment::cores()));
@@ -244,6 +247,14 @@ public:
     {
         return _scheduler->statistic(counter, channel_id);
     }
+
+    static Scheduler &scheduler() { return *_scheduler; }
+
+    static std::uint16_t my_id() { return _scheduler->my_self()->id(); }
+
+    static std::uint16_t my_channel() { return _scheduler->my_self()->current_channel()->id(); }
+
+    static std::uint16_t workers_count() { return _scheduler->active_workers(); }
 
 private:
     // Scheduler to spawn tasks.
