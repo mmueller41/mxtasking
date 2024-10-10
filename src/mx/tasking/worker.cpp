@@ -6,16 +6,17 @@
 #include <mx/system/builtin.h>
 #include <mx/system/topology.h>
 #include <mx/util/random.h>
+#include <iostream>
 
 using namespace mx::tasking;
 
 Worker::Worker(const std::uint16_t id, const std::uint16_t target_core_id, const std::uint16_t target_numa_node_id,
                const util::maybe_atomic<bool> &is_running, const std::uint16_t prefetch_distance,
                memory::reclamation::LocalEpoch &local_epoch,
-               const std::atomic<memory::reclamation::epoch_t> &global_epoch, profiling::Statistic &statistic) noexcept
+               const std::atomic<memory::reclamation::epoch_t> &global_epoch, profiling::Statistic &statistic, synchronization::Spinlock &cout_lock) noexcept
     : _target_core_id(target_core_id), _prefetch_distance(prefetch_distance),
       _channel(id, target_numa_node_id, prefetch_distance), _local_epoch(local_epoch), _global_epoch(global_epoch),
-      _statistic(statistic), _is_running(is_running)
+      _statistic(statistic), _is_running(is_running), _cout_lock(cout_lock)
 {
 }
 
@@ -32,8 +33,15 @@ void Worker::execute()
     //assert(this->_target_core_id == core_id && "Worker not pinned to correct core.");
     const auto channel_id = this->_channel.id();
 
-    while (this->_is_running)
+    _phys_core_id = static_cast<std::uint16_t>(sched_getcpu());
+
+    while (true)
     {
+        while (this->_is_running == false)
+        {
+            system::builtin::pause();
+        }
+    
         if constexpr (config::memory_reclamation() == config::UpdateEpochPeriodically)
         {
             this->_local_epoch.enter(this->_global_epoch);

@@ -12,6 +12,7 @@
 #include <mx/util/maybe_atomic.h>
 #include <variant>
 #include <vector>
+#include <mx/synchronization/spinlock.h>
 
 namespace mx::tasking {
 /**
@@ -23,7 +24,7 @@ public:
     Worker(std::uint16_t id, std::uint16_t target_core_id, std::uint16_t target_numa_node_id,
            const util::maybe_atomic<bool> &is_running, std::uint16_t prefetch_distance,
            memory::reclamation::LocalEpoch &local_epoch, const std::atomic<memory::reclamation::epoch_t> &global_epoch,
-           profiling::Statistic &statistic) noexcept;
+           profiling::Statistic &statistic, synchronization::Spinlock &cout_lock) noexcept;
 
     ~Worker() noexcept = default;
 
@@ -40,9 +41,15 @@ public:
     [[nodiscard]] Channel &channel() noexcept { return _channel; }
     [[nodiscard]] const Channel &channel() const noexcept { return _channel; }
 
+    [[nodiscard]] const std::uint16_t phys_core_id() const noexcept { return _phys_core_id; }
+
 private:
     // Id of the logical core.
     const std::uint16_t _target_core_id;
+
+    std::uint16_t _phys_core_id{0};
+
+    synchronization::Spinlock &_cout_lock;
 
     // Distance of prefetching tasks.
     const std::uint16_t _prefetch_distance;

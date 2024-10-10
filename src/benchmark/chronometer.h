@@ -49,6 +49,7 @@ template <typename P> class InterimResult
 public:
     InterimResult(const std::uint64_t operation_count, const P &phase, const std::uint16_t iteration,
                   const std::uint16_t core_count, const std::chrono::milliseconds time,
+                  const std::array<std::uint16_t,mx::tasking::config::max_cores()> &affinities,
                   std::vector<PerfCounter> &counter, std::unordered_map<std::uint16_t, std::uint64_t> executed_tasks,
                   std::unordered_map<std::uint16_t, std::uint64_t> executed_reader_tasks,
                   std::unordered_map<std::uint16_t, std::uint64_t> executed_writer_tasks,
@@ -56,7 +57,7 @@ public:
                   std::unordered_map<std::uint16_t, std::uint64_t> scheduled_tasks_on_core,
                   std::unordered_map<std::uint16_t, std::uint64_t> scheduled_tasks_off_core,
                   std::unordered_map<std::uint16_t, std::uint64_t> worker_fills)
-        : _operation_count(operation_count), _phase(phase), _iteration(iteration), _core_count(core_count), _time(time),
+        : _operation_count(operation_count), _phase(phase), _iteration(iteration), _core_count(core_count), _time(time), _affinities(affinities),
           _executed_tasks(std::move(executed_tasks)), _executed_reader_tasks(std::move(executed_reader_tasks)),
           _executed_writer_tasks(std::move(executed_writer_tasks)), _scheduled_tasks(std::move(scheduled_tasks)),
           _scheduled_tasks_on_core(std::move(scheduled_tasks_on_core)),
@@ -75,6 +76,7 @@ public:
     std::uint16_t iteration() const noexcept { return _iteration; }
     std::uint16_t core_count() const noexcept { return _core_count; }
     std::chrono::milliseconds time() const noexcept { return _time; }
+    const std::array<std::uint16_t,mx::tasking::config::max_cores()> &affinities() const noexcept { return _affinities; }
     double throughput() const { return _operation_count / (_time.count() / 1000.0); }
     const std::vector<std::pair<std::string, double>> &performance_counter() const noexcept
     {
@@ -122,6 +124,7 @@ public:
         json["cores"] = core_count();
         json["phase"] = phase();
         json["throughput"] = throughput();
+        json["affinities"] = affinities();
         for (const auto &[name, value] : performance_counter())
         {
             json[name] = value / double(operation_count());
@@ -145,6 +148,7 @@ private:
     const std::uint16_t _iteration;
     const std::uint16_t _core_count;
     const std::chrono::milliseconds _time;
+    const std::array<std::uint16_t,mx::tasking::config::max_cores()> &_affinities;
     std::vector<std::pair<std::string, double>> _performance_counter;
     const std::unordered_map<std::uint16_t, std::uint64_t> _executed_tasks;
     const std::unordered_map<std::uint16_t, std::uint64_t> _executed_reader_tasks;
@@ -194,6 +198,7 @@ public:
                 _current_iteration,
                 _core_set.size(),
                 milliseconds,
+                mx::tasking::runtime::worker_affinities(),
                 _perf.counter(),
                 statistic_map(mx::tasking::profiling::Statistic::Executed),
                 statistic_map(mx::tasking::profiling::Statistic::ExecutedReader),
