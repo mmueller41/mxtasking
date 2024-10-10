@@ -116,18 +116,21 @@ void Benchmark::requests_finished()
 {
     const auto open_requests = --this->_open_requests;
 
+    //std::cout << "Finished request. " << this->_open_requests << " to go." << std::endl;
+
     if (open_requests == 0U) // All request schedulers are done.
     {
         std::uint16_t core_id = mx::system::topology::core_id();
-        if (core_id != 0) { 
+        /*if (core_id != 0) { 
             this->_open_requests++;
             auto *stop_task = mx::tasking::runtime::new_task<StopMeasurementTask>(0U, *this);
             stop_task->annotate(static_cast<mx::tasking::TaskInterface::channel>(0));
             mx::tasking::runtime::spawn(*stop_task, core_id);
             return;
-        }
+        }*/
         // Stop and print time (and performance counter).
         const auto result = this->_chronometer.stop(this->_workload.size());
+        std::cout << "Benchmark finished." << std::endl;
         mx::tasking::runtime::stop();
         std::cout << result << std::endl;
 
@@ -205,6 +208,11 @@ void Benchmark::requests_finished()
         {
             this->_tree.reset(nullptr);
         }
+
+        auto *restart_task = mx::tasking::runtime::new_task<RestartTask>(0U, *this);
+        restart_task->annotate(static_cast<mx::tasking::TaskInterface::channel>(0));
+        mx::tasking::runtime::spawn(*restart_task, core_id);
+        mx::tasking::runtime::resume();
     }
 }
 

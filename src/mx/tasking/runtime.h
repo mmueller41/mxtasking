@@ -125,6 +125,12 @@ public:
      */
     static void stop() noexcept { _scheduler->interrupt(); }
 
+    static void resume() noexcept { _scheduler->resume(); }
+
+    static const std::array<std::uint16_t,config::max_cores()> &worker_affinities() {
+        return _scheduler->worker_affinities();
+    }
+
     /**
      * Creates a new task.
      * @param core_id Core to allocate memory from.

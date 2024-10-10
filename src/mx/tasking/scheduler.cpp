@@ -18,6 +18,7 @@ Scheduler::Scheduler(const mx::util::core_set &core_set, const std::uint16_t pre
     : _core_set(core_set), _count_channels(core_set.size()), _worker({}), _channel_numa_node_map({0U}),
       _epoch_manager(core_set.size(), resource_allocator, _is_running), _statistic(_count_channels)
 {
+    std::cout << "Creating scheduler" << std::endl;
     this->_worker.fill(nullptr);
     this->_channel_numa_node_map.fill(0U);
 
@@ -29,7 +30,7 @@ Scheduler::Scheduler(const mx::util::core_set &core_set, const std::uint16_t pre
             new (memory::GlobalHeap::allocate(this->_channel_numa_node_map[worker_id], sizeof(Worker)))
                 Worker(worker_id, core_id, this->_channel_numa_node_map[worker_id], this->_is_running,
                        prefetch_distance, this->_epoch_manager[worker_id], this->_epoch_manager.global_epoch(),
-                       this->_statistic);
+                       this->_statistic, _cout_lock);
     }
 }
 

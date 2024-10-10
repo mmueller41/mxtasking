@@ -13,6 +13,7 @@
 #include <mx/util/core_set.h>
 #include <string>
 #include <vector>
+#include <iostream>
 
 namespace application::blinktree_benchmark {
 /**
@@ -116,6 +117,7 @@ class StartMeasurementTask : public mx::tasking::TaskInterface
         mx::tasking::TaskResult execute(const std::uint16_t, const std::uint16_t) override
         {
             _benchmark._chronometer.start(static_cast<std::uint16_t>(static_cast<benchmark::phase>(_benchmark._workload)), _benchmark._current_iteration + 1, _benchmark._cores.current());
+            std::cout << "Started benchmark" << std::endl;
             return mx::tasking::TaskResult::make_remove();
         }
 };
@@ -133,5 +135,28 @@ class StopMeasurementTask : public mx::tasking::TaskInterface
             _benchmark.requests_finished();
             return mx::tasking::TaskResult::make_remove();
         }
+};
+class RestartTask : public mx::tasking::TaskInterface
+{
+private:
+    Benchmark &_benchmark;
+
+public:
+    constexpr RestartTask(Benchmark &benchmark) : _benchmark(benchmark) {}
+    ~RestartTask() override = default;
+
+    mx::tasking::TaskResult execute(const std::uint16_t core_id, const std::uint16_t channel_id) override
+    {
+        if (_benchmark.core_set())
+        {
+            _benchmark.start();
+        }
+        else
+        {
+            std::cout << "Benchmark finished." << std::endl;
+            mx::tasking::runtime::stop();
+        }
+        return mx::tasking::TaskResult::make_remove();
+    }
 };
 } // namespace application::blinktree_benchmark

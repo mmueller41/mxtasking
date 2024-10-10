@@ -17,6 +17,7 @@
 #include <mx/util/core_set.h>
 #include <mx/util/random.h>
 #include <string>
+#include <mx/synchronization/spinlock.h>
 
 namespace mx::tasking {
 /**
@@ -55,8 +56,17 @@ public:
     void interrupt() noexcept
     {
         _is_running = false;
+        for (std::uint16_t worker_id = 0; worker_id < _count_channels; worker_id++) {
+            _worker_affinities[worker_id] = _worker[worker_id]->phys_core_id();
+        }
         this->_profiler.stop();
     }
+
+    [[nodiscard]] const std::array<std::uint16_t,config::max_cores()> &worker_affinities() {
+        return _worker_affinities;
+    }
+
+    void resume() noexcept { _is_running = true; }
 
     /**
      * @return Core set of this instance.
@@ -191,11 +201,14 @@ private:
     // Epoch manager for memory reclamation,
     alignas(64) memory::reclamation::EpochManager _epoch_manager;
 
+    alignas(64) std::array<std::uint16_t,config::max_cores()> _worker_affinities{0};
     // Profiler for task statistics.
     profiling::Statistic _statistic;
 
     // Profiler for idle times.
     profiling::Profiler _profiler{};
+
+    synchronization::Spinlock _cout_lock{};
 
     /**
      * Make a decision whether a task should be scheduled to the local
