@@ -48,6 +48,7 @@ int main(int count_arguments, char **arguments)
         while ((cores = benchmark->core_set()))
         {
             mx::tasking::runtime_guard _(use_system_allocator, cores, prefetch_distance);
+            benchmark->start_chronometer();
             benchmark->start();
         }
 

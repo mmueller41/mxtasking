@@ -47,6 +47,11 @@ public:
      */
     void start();
 
+    void start_chronometer() {
+        this->_chronometer.start(static_cast<std::uint16_t>(static_cast<benchmark::phase>(this->_workload)),
+                                    this->_current_iteration + 1, this->_cores.current());
+    }
+
 private:
     // Collection of cores the benchmark should run on.
     benchmark::Cores _cores;
@@ -101,6 +106,7 @@ private:
      */
     [[nodiscard]] std::string profile_file_name() const;
 
+    std::uint16_t start_core{0};
     friend class StartMeasurementTask;
     friend class StopMeasurementTask;
 };
@@ -116,7 +122,7 @@ class StartMeasurementTask : public mx::tasking::TaskInterface
 
         mx::tasking::TaskResult execute(const std::uint16_t, const std::uint16_t) override
         {
-            _benchmark._chronometer.start(static_cast<std::uint16_t>(static_cast<benchmark::phase>(_benchmark._workload)), _benchmark._current_iteration + 1, _benchmark._cores.current());
+            //_benchmark._chronometer.start(static_cast<std::uint16_t>(static_cast<benchmark::phase>(_benchmark._workload)), _benchmark._current_iteration + 1, _benchmark._cores.current());
             std::cout << "Started benchmark" << std::endl;
             return mx::tasking::TaskResult::make_remove();
         }
@@ -147,15 +153,7 @@ public:
 
     mx::tasking::TaskResult execute(const std::uint16_t core_id, const std::uint16_t channel_id) override
     {
-        if (_benchmark.core_set())
-        {
-            _benchmark.start();
-        }
-        else
-        {
-            std::cout << "Benchmark finished." << std::endl;
-            mx::tasking::runtime::stop();
-        }
+        _benchmark.start();
         return mx::tasking::TaskResult::make_remove();
     }
 };

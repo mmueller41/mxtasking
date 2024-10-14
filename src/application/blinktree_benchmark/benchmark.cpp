@@ -4,6 +4,9 @@
 #include <json.hpp>
 #include <memory>
 #include <mx/memory/global_heap.h>
+#include <runtime/thread.h>
+
+#define SHENANGO
 
 using namespace application::blinktree_benchmark;
 
@@ -26,6 +29,7 @@ Benchmark::Benchmark(benchmark::Cores &&cores, const std::uint16_t iterations, s
         //this->_chronometer.add(benchmark::Perf::STALLS_MEM_ANY);
         //this->_chronometer.add(benchmark::Perf::SW_PREFETCH_ACCESS_NTA);
         //this->_chronometer.add(benchmark::Perf::SW_PREFETCH_ACCESS_WRITE);
+        this->_chronometer.add(benchmark::Perf::L1_MISSES);
         this->_chronometer.add(benchmark::Perf::LLC_MISSES);
         this->_chronometer.add(benchmark::Perf::DTLB_READ_MISSES);
         this->_chronometer.add(benchmark::Perf::DTLB_STORE_MISSES);
@@ -79,8 +83,9 @@ void Benchmark::start()
     {
         mx::tasking::runtime::profile(this->profile_file_name());
     }
+
     //this->_chronometer.start(static_cast<std::uint16_t>(static_cast<benchmark::phase>(this->_workload)),
-      //                       this->_current_iteration + 1, this->_cores.current());
+    //                         this->_current_iteration + 1, this->_cores.current());
 }
 
 const mx::util::core_set &Benchmark::core_set()
@@ -120,8 +125,8 @@ void Benchmark::requests_finished()
 
     if (open_requests == 0U) // All request schedulers are done.
     {
-        std::uint16_t core_id = mx::system::topology::core_id();
-        /*if (core_id != 0) { 
+        auto core_id = get_current_affinity();
+        /*  if (core_id != start_core) {
             this->_open_requests++;
             auto *stop_task = mx::tasking::runtime::new_task<StopMeasurementTask>(0U, *this);
             stop_task->annotate(static_cast<mx::tasking::TaskInterface::channel>(0));
@@ -209,10 +214,20 @@ void Benchmark::requests_finished()
             this->_tree.reset(nullptr);
         }
 
-        auto *restart_task = mx::tasking::runtime::new_task<RestartTask>(0U, *this);
-        restart_task->annotate(static_cast<mx::tasking::TaskInterface::channel>(0));
-        mx::tasking::runtime::spawn(*restart_task, core_id);
-        mx::tasking::runtime::resume();
+        if (this->core_set())
+        {
+            this->_chronometer.start(static_cast<std::uint16_t>(static_cast<benchmark::phase>(this->_workload)),
+                                     this->_current_iteration + 1, this->_cores.current());
+            auto *restart_task = mx::tasking::runtime::new_task<RestartTask>(0U, *this);
+            restart_task->annotate(static_cast<mx::tasking::TaskInterface::channel>(0));
+            mx::tasking::runtime::spawn(*restart_task, core_id);
+            mx::tasking::runtime::resume();
+        }
+        else
+        {
+            std::cout << "Benchmark finished." << std::endl;
+            mx::tasking::runtime::stop();
+        }
     }
 }
 
