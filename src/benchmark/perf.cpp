@@ -6,23 +6,23 @@ using namespace benchmark;
  * Counter "Instructions Retired"
  * Counts when the last uop of an instruction retires.
  */
-[[maybe_unused]] PerfCounter Perf::INSTRUCTIONS = {"instr", PERF_TYPE_HARDWARE, PERF_COUNT_HW_INSTRUCTIONS};
+[[maybe_unused]] PerfCounter Perf::INSTRUCTIONS = {"instr", 4, 192};
 
 /**
  */
-[[maybe_unused]] PerfCounter Perf::CYCLES = {"cycles", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CPU_CYCLES};
+[[maybe_unused]] PerfCounter Perf::CYCLES = {"cycles", 4, 0x76};
 
 /**
  */
-[[maybe_unused]] PerfCounter Perf::L1_MISSES = {"l1-miss", PERF_TYPE_HW_CACHE,
-                                                PERF_COUNT_HW_CACHE_L1D | (PERF_COUNT_HW_CACHE_OP_READ << 8) |
+[[maybe_unused]] PerfCounter Perf::L1_MISSES = {"l1i-miss", PERF_TYPE_HW_CACHE,
+                                                PERF_COUNT_HW_CACHE_L1I | (PERF_COUNT_HW_CACHE_OP_READ << 8) |
                                                     (PERF_COUNT_HW_CACHE_RESULT_MISS << 16)};
 
 /**
  * Counter "LLC Misses"
  * Accesses to the LLC in which the data is not present(miss).
  */
-[[maybe_unused]] PerfCounter Perf::LLC_MISSES = {"llc-miss", PERF_TYPE_HARDWARE, PERF_COUNT_HW_CACHE_MISSES};
+[[maybe_unused]] PerfCounter Perf::LLC_MISSES = {"l1d-miss", PERF_TYPE_HW_CACHE, PERF_COUNT_HW_CACHE_L1D | (PERF_COUNT_HW_CACHE_OP_READ << 8) | (PERF_COUNT_HW_CACHE_RESULT_MISS << 16)};
 
 [[maybe_unused]] PerfCounter Perf::DTLB_READ_MISSES = {"dtlb-read-miss", PERF_TYPE_HW_CACHE, 0x10003};
 [[maybe_unused]] PerfCounter Perf::DTLB_STORE_MISSES = {"dtlb-store-miss", PERF_TYPE_HW_CACHE, 0x10103};

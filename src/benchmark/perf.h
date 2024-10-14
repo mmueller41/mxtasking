@@ -35,7 +35,7 @@ public:
         _perf_event_attribute.size = sizeof(perf_event_attr);
         _perf_event_attribute.config = event_id;
         _perf_event_attribute.disabled = true;
-        _perf_event_attribute.inherit = 1;
+        _perf_event_attribute.inherit = 0;
         _perf_event_attribute.exclude_kernel = false;
         _perf_event_attribute.exclude_hv = false;
         _perf_event_attribute.read_format = PERF_FORMAT_TOTAL_TIME_ENABLED | PERF_FORMAT_TOTAL_TIME_RUNNING;
@@ -67,7 +67,7 @@ public:
     {
         const auto multiplexing_correction = static_cast<double>(_data.time_enabled - _prev.time_enabled) /
                                              static_cast<double>(_data.time_running - _prev.time_running);
-        return static_cast<double>(_data.value - _prev.value) * multiplexing_correction;
+        return static_cast<double>(_data.value - _prev.value);
     }
 
     [[nodiscard]] const std::string &name() const { return _name; }
