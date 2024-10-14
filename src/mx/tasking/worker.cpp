@@ -13,10 +13,10 @@ using namespace mx::tasking;
 Worker::Worker(const std::uint16_t id, const std::uint16_t target_core_id, const std::uint16_t target_numa_node_id,
                const util::maybe_atomic<bool> &is_running, const std::uint16_t prefetch_distance,
                memory::reclamation::LocalEpoch &local_epoch,
-               const std::atomic<memory::reclamation::epoch_t> &global_epoch, profiling::Statistic &statistic, synchronization::Spinlock &cout_lock) noexcept
+               const std::atomic<memory::reclamation::epoch_t> &global_epoch, profiling::Statistic &statistic, synchronization::Spinlock &cout_lock, rt::CondVar &stop, rt::Mutex &mutex, std::atomic<std::uint16_t> &counter) noexcept
     : _target_core_id(target_core_id), _prefetch_distance(prefetch_distance),
       _channel(id, target_numa_node_id, prefetch_distance), _local_epoch(local_epoch), _global_epoch(global_epoch),
-      _statistic(statistic), _is_running(is_running), _cout_lock(cout_lock)
+      _statistic(statistic), _is_running(is_running), _cout_lock(cout_lock), _stop(stop), _mutex(mutex), _counter(counter)
 {
 }
 
@@ -39,9 +39,12 @@ void Worker::execute()
     {
         while (this->_is_running == false)
         {
-            system::builtin::pause();
+            rt::Mutex mutex{};
+            _stop.WaitTimed(&mutex, 10);
+            _counter.fetch_add(1);
+            //std::cout << "Worker " << _target_core_id << " woke up " << std::endl;
         }
-    
+
         if constexpr (config::memory_reclamation() == config::UpdateEpochPeriodically)
         {
             this->_local_epoch.enter(this->_global_epoch);

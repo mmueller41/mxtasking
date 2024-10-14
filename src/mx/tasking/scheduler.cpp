@@ -30,7 +30,7 @@ Scheduler::Scheduler(const mx::util::core_set &core_set, const std::uint16_t pre
             new (memory::GlobalHeap::allocate(this->_channel_numa_node_map[worker_id], sizeof(Worker)))
                 Worker(worker_id, core_id, this->_channel_numa_node_map[worker_id], this->_is_running,
                        prefetch_distance, this->_epoch_manager[worker_id], this->_epoch_manager.global_epoch(),
-                       this->_statistic, _cout_lock);
+                       this->_statistic, _cout_lock, _stop, this->_mutex, _worker_counter);
     }
 }
 
@@ -63,6 +63,9 @@ void Scheduler::start_and_wait()
 
     // Turning the flag on starts all worker threads to execute tasks.
     this->_is_running = true;
+
+    for (auto worker_id = 0; worker_id < this->_core_set.size(); ++worker_id)
+        this->_stop.SignalAll();
 
     // Wait for the worker threads to end. This will only
     // reached when the _is_running flag is set to false

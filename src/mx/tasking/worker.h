@@ -13,7 +13,11 @@
 #include <variant>
 #include <vector>
 #include <mx/synchronization/spinlock.h>
+#include <cc/sync.h>
 
+#ifndef SHENANGO
+#define SHENANGO
+#endif
 namespace mx::tasking {
 /**
  * The worker executes tasks from his own channel, until the "running" flag is false.
@@ -24,7 +28,7 @@ public:
     Worker(std::uint16_t id, std::uint16_t target_core_id, std::uint16_t target_numa_node_id,
            const util::maybe_atomic<bool> &is_running, std::uint16_t prefetch_distance,
            memory::reclamation::LocalEpoch &local_epoch, const std::atomic<memory::reclamation::epoch_t> &global_epoch,
-           profiling::Statistic &statistic, synchronization::Spinlock &cout_lock) noexcept;
+           profiling::Statistic &statistic, synchronization::Spinlock &cout_lock, rt::CondVar &stop, rt::Mutex &mutex, std::atomic<std::uint16_t> &counter) noexcept;
 
     ~Worker() noexcept = default;
 
@@ -74,6 +78,11 @@ private:
 
     // Flag for "running" state of MxTasking.
     const util::maybe_atomic<bool> &_is_running;
+
+    rt::CondVar &_stop;
+    rt::Mutex &_mutex;
+
+    std::atomic<std::uint16_t> &_counter;
 
     /**
      * Analyzes the given task and chooses the execution method regarding synchronization.

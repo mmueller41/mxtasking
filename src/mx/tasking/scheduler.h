@@ -18,6 +18,11 @@
 #include <mx/util/random.h>
 #include <string>
 #include <mx/synchronization/spinlock.h>
+#include <cc/sync.h>
+
+#ifndef SHENANGO
+#define SHENANGO
+#endif
 
 namespace mx::tasking {
 /**
@@ -60,13 +65,19 @@ public:
             _worker_affinities[worker_id] = _worker[worker_id]->phys_core_id();
         }
         this->_profiler.stop();
+        _worker_counter.store(0);
     }
 
     [[nodiscard]] const std::array<std::uint16_t,config::max_cores()> &worker_affinities() {
         return _worker_affinities;
     }
 
-    void resume() noexcept { _is_running = true; }
+    void resume() noexcept 
+    {
+        _is_running = true;
+        for (auto worker_id = 0; worker_id < this->_core_set.size()+15; ++worker_id)
+            _stop.Signal();
+    }
 
     /**
      * @return Core set of this instance.
@@ -209,6 +220,11 @@ private:
     profiling::Profiler _profiler{};
 
     synchronization::Spinlock _cout_lock{};
+
+    rt::CondVar _stop{};
+    rt::Mutex _mutex{};
+
+    std::atomic<std::uint16_t> _worker_counter{0};
 
     /**
      * Make a decision whether a task should be scheduled to the local
