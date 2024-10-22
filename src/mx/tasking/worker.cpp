@@ -40,7 +40,7 @@ void Worker::execute()
         while (this->_is_running == false)
         {
             rt::Mutex mutex{};
-            _stop.WaitTimed(&mutex, 10);
+            _stop.Wait(&mutex);
             _counter.fetch_add(1);
             //std::cout << "Worker " << _target_core_id << " woke up " << std::endl;
         }
@@ -51,6 +51,9 @@ void Worker::execute()
         }
 
         this->_channel_size = this->_channel.fill();
+        if (this->_channel.empty()) {
+            thread_yield();
+        }
 
         if constexpr (config::task_statistics())
         {
