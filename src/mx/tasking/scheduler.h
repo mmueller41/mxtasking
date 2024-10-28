@@ -16,8 +16,10 @@
 #include <mx/tasking/profiling/statistic.h>
 #include <mx/util/core_set.h>
 #include <mx/util/random.h>
+#include <mx/util/bit_alloc.h>
 #include <string>
 #include <cmath>
+#include <mx/util/field_alloc.h>
 
 namespace mx::tasking {
 /**
@@ -57,7 +59,6 @@ public:
     {
         _is_running = false;
         //Genode::log("Stopping runtime");
-        Genode::log("Waiting for ", _active_worker_count.load(), " workers to finish.");
         while (_active_worker_count > 1)
             system::builtin::pause();
         Nova::mword_t pcpu = 0;
@@ -82,7 +83,7 @@ public:
         Nova::core_allocation(allocation, false);
         //Genode::log("Allocation before resume ", allocation);
 
-        allocate_cores(_core_set.size()-1);
+        allocate_cores(_count_channels);
         _is_running = true;
     }
 
@@ -93,13 +94,9 @@ public:
         return _worker_at_core[pcpu];
     }
 
+    [[nodiscard]] inline Channel *get_channel(std::uint64_t index) { return _channels[index]; }
+
     [[nodiscard]] inline std::uint16_t active_workers() const noexcept { return _active_worker_count; }
-
-    Channel *steal_for(Worker *thief);
-
-    [[nodiscard]] inline void set_stealing_limit(std::uint16_t workers) {
-        _stealing_limit = std::ceil(static_cast<float>(_vacant_channels.size()) / static_cast<float>(workers));
-    }
 
     /**
      * @return Core set of this instance.
@@ -232,9 +229,6 @@ public:
         }
     }
 
-    inline void add_vacant_channel(Channel *channel) { _vacant_channels.push_back(channel);
-    }
-
     /**
      * Starts profiling of idle times and specifies the results file.
      * @param output_file File to write idle times after stopping MxTasking.
@@ -251,9 +245,8 @@ public:
         Nova::mword_t remainder = 0;
         Nova::alloc_cores(cores, allocation, remainder);
         std::bitset<config::max_cores()> allocated(allocation);
-        _remainder_channel_count.store(remainder);
+        _remainder_channel_count.store(allocated.count());
 
-        //Genode::log("Allocated ", allocation, " with ", allocated.count(), " workers and ", remainder, " excess queues.");
     }
 
 private:
@@ -277,9 +270,8 @@ private:
 
     alignas(64) std::array<Channel *, config::max_cores()> _channels{nullptr};
 
-    alignas(64) util::BoundMPMCQueue<Channel *> _vacant_channels{config::max_cores()};
+    alignas(64) mx::util::Field_Allocator<config::max_cores()> _vacant_channels_alloc{63};
     alignas(64) std::atomic<std::int32_t> _remainder_channel_count{0};
-    alignas(64) util::maybe_atomic<std::uint16_t> _stealing_limit{0};
 
     // Map of channel id to NUMA region id.
     alignas(64) std::array<std::uint8_t, config::max_cores()> _channel_numa_node_map{0U};

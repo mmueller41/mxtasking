@@ -39,6 +39,7 @@ public:
     }
     ~Channel() noexcept = default;
 
+
     /**
      * @return Identifier of the channel.
      */
@@ -47,7 +48,10 @@ public:
     /**
      * @return The next task to be executed.
      */
-    TaskInterface *next() noexcept { return _task_buffer.next(); }
+    TaskInterface *next_task() noexcept { return _task_buffer.next(); }
+
+    Channel *next() noexcept { return _next; }
+    void next(Channel *c) { _next = c; }
 
     /**
      * Schedules the task to thread-safe queue with regard to the NUMA region
@@ -176,6 +180,8 @@ private:
 
     // Is the channel currently processed by a worker
     alignas(64) std::atomic<tasking::priority> _phase{priority::normal};
+
+    alignas(64) Channel *_next{nullptr};
 
     /**
      * Fills the task buffer with tasks scheduled with a given priority.
